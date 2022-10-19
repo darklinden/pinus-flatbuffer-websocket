@@ -1,0 +1,8 @@
+namespace Proto;
+
+enum Color : byte {
+    WHITE = 0, // 白 
+    RED = 1, // 红 
+    GREEN = 2, // 绿 
+    BLUE = 3, // 蓝 
+}

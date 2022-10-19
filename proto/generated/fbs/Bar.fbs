@@ -1,0 +1,5 @@
+namespace Proto;
+
+table Bar {
+    bar:int64;
+}

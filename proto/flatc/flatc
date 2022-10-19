@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+unameOut="$(uname -s)"
+case "${unameOut}" in
+Linux*) machine="-linux" ;;
+Darwin*) machine="-darwin-intel" ;;
+CYGWIN*) machine="-windows" ;;
+MINGW*) machine="-windows" ;;
+*) machine="UNKNOWN:${unameOut}" ;;
+esac
+
+exe="flatc"${machine}
+# echo $exe
+
+# shell get this file path
+# https://stackoverflow.com/questions/59895/how-to-get-the-source-directory-of-a-bash-script-from-within-the-script-itself
+
+SOURCE=${BASH_SOURCE[0]}
+# echo $SOURCE
+while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+    DIR=$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)
+    SOURCE=$(readlink "$SOURCE")
+    [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR=$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)
+# echo $DIR
+
+exe=$DIR/$exe
+
+$exe $@

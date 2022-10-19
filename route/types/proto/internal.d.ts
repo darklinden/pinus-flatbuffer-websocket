@@ -1,0 +1,30 @@
+import { Bar as Bar_, BarT as BarT_ } from './bar';
+import { Color as Color_ } from './color';
+import { Foo as Foo_, FooT as FooT_ } from './foo';
+import { MapXDataRow as MapXDataRow_, MapXDataRowT as MapXDataRowT_ } from './map-xdata-row';
+import { MapXData as MapXData_, MapXDataT as MapXDataT_ } from './map-xdata';
+import { Vec3 as Vec3_, Vec3T as Vec3T_ } from './vec3';
+export declare namespace proto {
+    const Bar: typeof Bar_;
+    type IBar = Bar_;
+    const BarT: typeof BarT_;
+    type IBarT = BarT_;
+    const Color: typeof Color_;
+    type IColor = Color_;
+    const Foo: typeof Foo_;
+    type IFoo = Foo_;
+    const FooT: typeof FooT_;
+    type IFooT = FooT_;
+    const MapXDataRow: typeof MapXDataRow_;
+    type IMapXDataRow = MapXDataRow_;
+    const MapXDataRowT: typeof MapXDataRowT_;
+    type IMapXDataRowT = MapXDataRowT_;
+    const MapXData: typeof MapXData_;
+    type IMapXData = MapXData_;
+    const MapXDataT: typeof MapXDataT_;
+    type IMapXDataT = MapXDataT_;
+    const Vec3: typeof Vec3_;
+    type IVec3 = Vec3_;
+    const Vec3T: typeof Vec3T_;
+    type IVec3T = Vec3T_;
+}

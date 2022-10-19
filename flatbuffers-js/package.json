@@ -1,0 +1,22 @@
+{
+    "name": "flatbuffers",
+    "type": "commonjs",
+    "version": "1.0.0",
+    "description": "",
+    "exports": {
+        ".": {
+            "require": "./dist/index.js"
+        }
+    },
+    "main": "./dist/index.js",
+    "types": "./types/index.d.ts",
+    "author": "",
+    "dependencies": {},
+    "scripts": {
+        "watch": "tsc --watch --noEmit --noErrorTruncation --pretty",
+        "build": "rm -rf ./dist && rm -rf ./types && tsc"
+    },
+    "devDependencies": {
+        "typescript": "^4.7.4"
+    }
+}

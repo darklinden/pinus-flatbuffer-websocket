@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "module": "CommonJS",
+        "target": "ES2017",
+        "noImplicitAny": true,
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "sourceMap": true,
+        "allowJs": true,
+        "outDir": "dist/",
+        "moduleResolution": "Node",
+        "declaration": true,
+        "declarationDir": "types/",
+        "lib": [
+            "es2016",
+            "dom",
+            "es2020"
+        ],
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}

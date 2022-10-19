@@ -1,0 +1,26 @@
+{
+    "name": "route",
+    "type": "commonjs",
+    "version": "1.0.0",
+    "description": "为网络请求标注路由, 由于切换 flatbuffers 后封装和解析由各块逻辑代码处理, 已只做标记使用",
+    "exports": {
+        ".": {
+            "require": "./dist/index.js"
+        }
+    },
+    "main": "./dist/index.js",
+    "types": "./types/index.d.ts",
+    "author": "",
+    "dependencies": {
+        "flatbuffers": "file:../flatbuffers-js"
+    },
+    "scripts": {
+        "watch": "tsc --watch --noEmit --noErrorTruncation --pretty",
+        "build": "npm run gen-proto-index && npm run gen-routes && rm -rf ./dist && rm -rf ./types && tsc",
+        "gen-routes": "node ./tools/gen-routes",
+        "gen-proto-index": "rm -rf ./src/proto && cp -r ../proto/generated/ts/proto src/proto && node ./tools/wrap-proto-index"
+    },
+    "devDependencies": {
+        "typescript": "^4.7.4"
+    }
+}
