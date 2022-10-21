@@ -196,48 +196,59 @@ function csv_to_table_struct(
         if (item.trim() == '')
             continue
 
-        const tmp = item.split('|')
-        const comment = tmp[0]
-        const data = tmp[1]
-        const variable = data.split(':')
-        const variable_name = variable[0]
-        const data_type = variable[1]
-
-        let var_type = data_type.trim();
-
-        // 如果是数组类型，取内部类型
-        let isArr = false;
-        if (var_type.startsWith('[') && var_type.endsWith(']')) {
-            var_type = var_type.slice(1, -1);
-            isArr = true;
+        if (item.startsWith('#')) {
+            // 跳过表头和注释
+            continue;
         }
 
-        let fieldStruct: JsonFieldStruct = null;
-        if (BaseDataTypes.indexOf(var_type) == -1) {
-            // 复杂类型
-            if (includes[var_type]) {
-                fieldStruct = includes[var_type].clone();
+        try {
+            const tmp = item.split('|')
+            const comment = tmp[0]
+            const data = tmp[1]
+            const variable = data.split(':')
+            const variable_name = variable[0]
+            const data_type = variable[1]
+
+            let var_type = data_type.trim();
+
+            // 如果是数组类型，取内部类型
+            let isArr = false;
+            if (var_type.startsWith('[') && var_type.endsWith(']')) {
+                var_type = var_type.slice(1, -1);
+                isArr = true;
+            }
+
+            let fieldStruct: JsonFieldStruct = null;
+            if (BaseDataTypes.indexOf(var_type) == -1) {
+                // 复杂类型
+                if (includes[var_type]) {
+                    fieldStruct = includes[var_type].clone();
+                }
+                else {
+                    let includeStruct = parse_sub_struct(var_type, includes, obj);
+                    includes[var_type] = includeStruct;
+                    fieldStruct = includeStruct.clone();
+                }
+
+                fieldStruct.name = variable_name;
+                fieldStruct.typeStr = var_type;
+                fieldStruct.isArr = isArr;
             }
             else {
-                let includeStruct = parse_sub_struct(var_type, includes, obj);
-                includes[var_type] = includeStruct;
-                fieldStruct = includeStruct.clone();
+                // 基础类型
+                fieldStruct = new JsonFieldStruct();
+                fieldStruct.name = variable_name;
+                fieldStruct.typeStr = var_type;
+                fieldStruct.isArr = isArr;
+                fieldStruct.fieldType = FieldType.Base;
             }
 
-            fieldStruct.name = variable_name;
-            fieldStruct.typeStr = var_type;
-            fieldStruct.isArr = isArr;
-        }
-        else {
-            // 基础类型
-            fieldStruct = new JsonFieldStruct();
-            fieldStruct.name = variable_name;
-            fieldStruct.typeStr = var_type;
-            fieldStruct.isArr = isArr;
-            fieldStruct.fieldType = FieldType.Base;
-        }
+            rowStructs.push(fieldStruct);
 
-        rowStructs.push(fieldStruct);
+        } catch (error) {
+            console.log('csv_to_table_struct: ' + csv_path + ' error: ' + item);
+            throw error;
+        }
     }
 
     return rowStructs;
@@ -260,10 +271,10 @@ export function parse_json_field_base_type(typeStr: string, str: string): any {
 
 export function parse_json_field_enum_type(struct: JsonFieldStruct, str: string): any {
     if (struct.enumKV.hasOwnProperty(str)) {
-        return struct.enumKV[str];
+        return str;
     }
     else if (struct.enumVK.hasOwnProperty(parseInt(str))) {
-        return parseInt(str);
+        return struct.enumVK[parseInt(str)];
     }
     else {
         throw new Error('未知枚举值: ' + struct.typeStr + ' - ' + str);
@@ -281,7 +292,8 @@ export function parse_json_field_struct_or_table_type(struct: JsonFieldStruct, s
     for (let i = 0; i < items.length; i++) {
         let item = items[i];
         const [key, value] = parse_json_field(struct.subStructs[i], item);
-        obj[key] = value;
+        if (value != null)
+            obj[key] = value;
     }
     return obj;
 }
@@ -292,6 +304,9 @@ export function parse_json_field(struct: JsonFieldStruct, str: string): [string,
 
     if (struct.fieldType == FieldType.Base) {
         if (struct.isArr) {
+            if (str == null || str.trim() == '') {
+                return [struct.name, null];
+            }
             let arr = str.split(';');
             value = [];
             for (const item of arr) {
@@ -299,12 +314,18 @@ export function parse_json_field(struct: JsonFieldStruct, str: string): [string,
             }
         }
         else {
+            if (str == null || str.trim() == '') {
+                return [struct.name, 0];
+            }
             value = parse_json_field_base_type(struct.typeStr, str);
         }
         return [struct.name, value];
     }
     else if (struct.fieldType == FieldType.Enum) {
         if (struct.isArr) {
+            if (str == null || str.trim() == '') {
+                return [struct.name, null];
+            }
             let arr = str.split(';');
             value = [];
             for (const item of arr) {
@@ -312,11 +333,17 @@ export function parse_json_field(struct: JsonFieldStruct, str: string): [string,
             }
         }
         else {
+            if (str == null || str.trim() == '') {
+                return [struct.name, struct.enumVK[0]];
+            }
             value = parse_json_field_enum_type(struct, str);
         }
         return [struct.name, value];
     }
     else if (struct.fieldType == FieldType.StructOrTable) {
+        if (str == null || str.trim() == '') {
+            return [struct.name, null];
+        }
         if (struct.isArr) {
             let arr = str.split(';');
             value = [];
@@ -368,7 +395,8 @@ function struct_match_row(struct: JsonFieldStruct[], dataRows: string[][]): any 
             const value = row[i];
             // console.log('正在解析行数据', field.name, value);
             const [k, v] = parse_json_field(field, value);
-            obj[field.name] = v;
+            if (v != null)
+                obj[field.name] = v;
         }
         result.rows.push(obj);
     }

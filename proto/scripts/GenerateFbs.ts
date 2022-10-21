@@ -83,7 +83,7 @@ function csv_to_fbs_struct(file_path: string, name: string): [string, string[]] 
 
 function csv_to_fbs_table(file_path: string, name: string): [string, string[]] {
 
-    console.log('导出 csv 文件为表', file_path, name);
+    console.log('\n导出 csv 文件为表', file_path, name);
 
     let rows = CsvUtil.loadDataSync(file_path);
     let header: string[];
@@ -101,26 +101,41 @@ function csv_to_fbs_table(file_path: string, name: string): [string, string[]] {
     // 字段名, 字段类型, 注释
     let table_str = `table ${name}Row {\n`;
     for (let item of header) {
-        if (item.trim() == '')
+        if (item.trim() == '') {
             continue
-
-        const tmp = item.split('|')
-        const comment = tmp[0]
-        const data = tmp[1]
-        const variable = data.split(':')
-        const variable_name = variable[0]
-        const data_type = variable[1]
-
-        let var_type = data_type.trim();
-        // 如果是数组类型，取内部类型
-        if (var_type.startsWith('[') && var_type.endsWith(']'))
-            var_type = var_type.slice(1, -1);
-        if (BaseDataTypes.indexOf(var_type) == -1 && includes.indexOf(var_type) == -1) {
-            // console.log('includes', var_type, item);
-            includes.push(var_type);
+        }
+        if (item.startsWith('#')) {
+            // 跳过注释
+            // console.log('跳过注释', item);
+            continue;
         }
 
-        table_str += `    ${variable_name}:${data_type}; // ${comment} \n`;
+        try {
+
+            console.log('读取行', item);
+
+            const tmp = item.split('|')
+            const comment = tmp[0]
+            const data = tmp[1]
+            const variable = data.split(':')
+            const variable_name = variable[0]
+            const data_type = variable[1]
+
+            let var_type = data_type.trim();
+            // 如果是数组类型，取内部类型
+            if (var_type.startsWith('[') && var_type.endsWith(']'))
+                var_type = var_type.slice(1, -1);
+            if (BaseDataTypes.indexOf(var_type) == -1 && includes.indexOf(var_type) == -1) {
+                console.log('生成引用', var_type);
+                includes.push(var_type);
+            }
+            table_str += `    ${variable_name}:${data_type}; // ${comment} \n`;
+            console.log('生成字段', variable_name, data_type, comment);
+
+        } catch (error) {
+            console.log('csv_to_fbs_table error', item, error);
+            throw error;
+        }
     }
     table_str += '}\n';
 

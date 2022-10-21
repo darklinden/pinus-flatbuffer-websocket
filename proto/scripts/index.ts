@@ -2,7 +2,7 @@ import fs = require('fs');
 import path = require('path');
 
 import { generate_bytes } from "./GenerateBytes";
-import { generate_code, generate_ts_code } from "./GenerateCode";
+import { generate_code, generate_csharp_code, generate_ts_code } from "./GenerateCode";
 import { generate_fbs } from "./GenerateFbs";
 import { generate_json } from "./GenerateJson";
 import { Initialize } from "./Initialize";
@@ -33,7 +33,7 @@ console.log('========================================');
 console.log('生成代码');
 console.log('----------------------------------------');
 generate_ts_code();
-generate_code(paths.csharp, 'csharp');
+generate_csharp_code();
 console.log('========================================\n');
 
 console.log('========================================');
