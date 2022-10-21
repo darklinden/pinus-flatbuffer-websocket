@@ -18,7 +18,7 @@ public class NetworkTest : MonoBehaviour
                 if (textAsset.name == "MapXData")
                 {
                     var bb = new ByteBuffer(textAsset.bytes);
-                    var map = MapXData.GetRootAsMapXData(bb);
+                    var map = MapXData.GetRoot(bb);
                     for (int i = 0; i < map.RowsLength; i++)
                     {
                         var row = map.Rows(i);
@@ -74,12 +74,12 @@ public class NetworkTest : MonoBehaviour
         var builder = FlatBufferBuilder.InstanceDefault;
         Foo.StartFoo(builder);
         Foo.AddFoo(builder, 1121212121212121212L);
-        var foo = Foo.EndFoo(builder);
+        var foo = Foo.End(builder);
         builder.Finish(foo.Value);
 
         Pinus.Request(Structs.FooBar.OnFoo.route, builder.DataBuffer, (ByteBuffer data) =>
         {
-            var bar = Bar.GetRootAsBar(data);
+            var bar = Bar.GetRoot(data);
             Log.D("OnFoo Return", bar.Bar_);
         });
     }

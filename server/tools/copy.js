@@ -41,6 +41,20 @@ walkDir(src_folder, '', (_, relative) => {
             // console.log('build. skip copy equal config file: ' + relative);
         }
     }
+    else if (relative.endsWith('.bytes')) {
+        const src = path.join(src_folder, relative);
+        const des = path.join(des_folder, relative);
+
+        if (!fs.existsSync(des) || file_md5(src) != file_md5(des)) {
+            console.log('copy config file: ' + relative);
+            fs.mkdirSync(path.dirname(des), { recursive: true });
+            fs.copyFileSync(src, des);
+        }
+        else {
+            file_total++;
+            // console.log('build. skip copy equal config file: ' + relative);
+        }
+    }
 });
 
 console.log('build. config files copy done. total: ' + file_total + ', copied: ' + file_copied + ', skipped: ' + (file_total - file_copied));

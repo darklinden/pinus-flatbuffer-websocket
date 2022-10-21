@@ -608,8 +608,8 @@ PlayerSettings:
   webGLThreadsSupport: 0
   webGLDecompressionFallback: 0
   scriptingDefineSymbols:
-    1: ASTAR_GRID_NO_CUSTOM_CONNECTIONS;ASTAR_LEVELGRIDNODE_FEW_LAYERS;ASTAR_NO_PENALTY;ASTAR_NO_ZIP;ASTAR_NO_POINT_GRAPH
-    13: ASTAR_GRID_NO_CUSTOM_CONNECTIONS;ASTAR_LEVELGRIDNODE_FEW_LAYERS;ASTAR_NO_PENALTY
+    1: UNITY_WEB_SOCKET_LOG
+    13: 
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend: {}

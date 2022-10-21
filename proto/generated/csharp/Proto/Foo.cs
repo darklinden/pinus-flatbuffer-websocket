@@ -14,25 +14,48 @@ public struct Foo : IFlatbufferObject
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
   public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_22_9_29(); }
-  public static Foo GetRootAsFoo(ByteBuffer _bb) { return GetRootAsFoo(_bb, new Foo()); }
-  public static Foo GetRootAsFoo(ByteBuffer _bb, Foo obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static Foo GetRoot(ByteBuffer _bb) { return GetRoot(_bb, new Foo()); }
+  public static Foo GetRoot(ByteBuffer _bb, Foo obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public Foo __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public long Foo_ { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetLong(o + __p.bb_pos) : (long)0; } }
 
-  public static Offset<Proto.Foo> CreateFoo(FlatBufferBuilder builder,
+  public static Offset<Proto.Foo> Create(FlatBufferBuilder builder,
       long foo = 0) {
     builder.StartTable(1);
     Foo.AddFoo(builder, foo);
-    return Foo.EndFoo(builder);
+    return Foo.End(builder);
   }
 
   public static void StartFoo(FlatBufferBuilder builder) { builder.StartTable(1); }
   public static void AddFoo(FlatBufferBuilder builder, long foo) { builder.AddLong(0, foo, 0); }
-  public static Offset<Proto.Foo> EndFoo(FlatBufferBuilder builder) {
+  public static Offset<Proto.Foo> End(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<Proto.Foo>(o);
+  }
+  public FooT UnPack() {
+    var _o = new FooT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(FooT _o) {
+    _o.Foo_ = this.Foo_;
+  }
+  public static Offset<Proto.Foo> Pack(FlatBufferBuilder builder, FooT _o) {
+    if (_o == null) return default(Offset<Proto.Foo>);
+    return Create(
+      builder,
+      _o.Foo_);
+  }
+}
+
+public class FooT
+{
+  public long Foo_ { get; set; }
+
+  public FooT() {
+    this.Foo_ = 0;
   }
 }
 

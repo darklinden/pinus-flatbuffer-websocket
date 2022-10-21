@@ -14,8 +14,8 @@ public struct MapXDataRow : IFlatbufferObject
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
   public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_22_9_29(); }
-  public static MapXDataRow GetRootAsMapXDataRow(ByteBuffer _bb) { return GetRootAsMapXDataRow(_bb, new MapXDataRow()); }
-  public static MapXDataRow GetRootAsMapXDataRow(ByteBuffer _bb, MapXDataRow obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static MapXDataRow GetRoot(ByteBuffer _bb) { return GetRoot(_bb, new MapXDataRow()); }
+  public static MapXDataRow GetRoot(ByteBuffer _bb, MapXDataRow obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public MapXDataRow __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
@@ -32,7 +32,7 @@ public struct MapXDataRow : IFlatbufferObject
   public Proto.Vec3? Camp2(int j) { int o = __p.__offset(10); return o != 0 ? (Proto.Vec3?)(new Proto.Vec3()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int Camp2Length { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
 
-  public static Offset<Proto.MapXDataRow> CreateMapXDataRow(FlatBufferBuilder builder,
+  public static Offset<Proto.MapXDataRow> Create(FlatBufferBuilder builder,
       int id = 0,
       StringOffset nameOffset = default(StringOffset),
       VectorOffset camp1Offset = default(VectorOffset),
@@ -42,7 +42,7 @@ public struct MapXDataRow : IFlatbufferObject
     MapXDataRow.AddCamp1(builder, camp1Offset);
     MapXDataRow.AddName(builder, nameOffset);
     MapXDataRow.AddId(builder, id);
-    return MapXDataRow.EndMapXDataRow(builder);
+    return MapXDataRow.End(builder);
   }
 
   public static void StartMapXDataRow(FlatBufferBuilder builder) { builder.StartTable(4); }
@@ -60,9 +60,59 @@ public struct MapXDataRow : IFlatbufferObject
   public static VectorOffset CreateCamp2VectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Proto.Vec3>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateCamp2VectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Proto.Vec3>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartCamp2Vector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
-  public static Offset<Proto.MapXDataRow> EndMapXDataRow(FlatBufferBuilder builder) {
+  public static Offset<Proto.MapXDataRow> End(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<Proto.MapXDataRow>(o);
+  }
+  public MapXDataRowT UnPack() {
+    var _o = new MapXDataRowT();
+    this.UnPackTo(_o);
+    return _o;
+  }
+  public void UnPackTo(MapXDataRowT _o) {
+    _o.Id = this.Id;
+    _o.Name = this.Name;
+    _o.Camp1 = new List<Proto.Vec3T>();
+    for (var _j = 0; _j < this.Camp1Length; ++_j) {_o.Camp1.Add(this.Camp1(_j).HasValue ? this.Camp1(_j).Value.UnPack() : null);}
+    _o.Camp2 = new List<Proto.Vec3T>();
+    for (var _j = 0; _j < this.Camp2Length; ++_j) {_o.Camp2.Add(this.Camp2(_j).HasValue ? this.Camp2(_j).Value.UnPack() : null);}
+  }
+  public static Offset<Proto.MapXDataRow> Pack(FlatBufferBuilder builder, MapXDataRowT _o) {
+    if (_o == null) return default(Offset<Proto.MapXDataRow>);
+    var _name = _o.Name == null ? default(StringOffset) : builder.CreateString(_o.Name);
+    var _camp1 = default(VectorOffset);
+    if (_o.Camp1 != null) {
+      var __camp1 = new Offset<Proto.Vec3>[_o.Camp1.Count];
+      for (var _j = 0; _j < __camp1.Length; ++_j) { __camp1[_j] = Proto.Vec3.Pack(builder, _o.Camp1[_j]); }
+      _camp1 = CreateCamp1Vector(builder, __camp1);
+    }
+    var _camp2 = default(VectorOffset);
+    if (_o.Camp2 != null) {
+      var __camp2 = new Offset<Proto.Vec3>[_o.Camp2.Count];
+      for (var _j = 0; _j < __camp2.Length; ++_j) { __camp2[_j] = Proto.Vec3.Pack(builder, _o.Camp2[_j]); }
+      _camp2 = CreateCamp2Vector(builder, __camp2);
+    }
+    return Create(
+      builder,
+      _o.Id,
+      _name,
+      _camp1,
+      _camp2);
+  }
+}
+
+public class MapXDataRowT
+{
+  public int Id { get; set; }
+  public string Name { get; set; }
+  public List<Proto.Vec3T> Camp1 { get; set; }
+  public List<Proto.Vec3T> Camp2 { get; set; }
+
+  public MapXDataRowT() {
+    this.Id = 0;
+    this.Name = null;
+    this.Camp1 = null;
+    this.Camp2 = null;
   }
 }
 

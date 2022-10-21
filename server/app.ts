@@ -1,6 +1,8 @@
 import { pinus } from 'pinus';
 import { preload } from './preload';
 import * as coder from './app/protobuf_coder';
+import { getMapData } from './app/configs';
+import { proto } from 'route';
 
 /**
  *  替换全局Promise
@@ -14,12 +16,12 @@ preload();
  */
 let app = pinus.createApp();
 
-// let testData = getTestData();
+let mapData = getMapData();
 app.set('name', 'test_server');
-// app.set('testData', testData);
+app.set('mapData', mapData);
 
-// let savedTestData = app.get('testData') as proto.ITable;
-// console.log('savedTestData:', savedTestData);
+let savedMap = app.get('mapData') as proto.IMapXDataT;
+console.log('mapData', savedMap);
 
 // app configuration
 app.configure('production|development', 'connector', function () {

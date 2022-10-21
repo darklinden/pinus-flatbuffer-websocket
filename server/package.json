@@ -10,7 +10,7 @@
         "test": "npm run build && cd dist && node app",
         "watch": "tsc --watch --noEmit --noErrorTruncation --pretty",
         "build": "npm i && tsc && node ./tools/copy",
-        "build-deps": "npm run build-route && npm i ../route",
+        "build-deps": "python3 ./tools/cprelative.py -f ../proto/generated/bytes -t ./config/bytes -e bytes -q && npm run build-route && npm i ../route",
         "build-route": "cd ../route && npm i && npm run build"
     },
     "dependencies": {
