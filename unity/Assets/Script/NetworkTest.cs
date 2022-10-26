@@ -9,48 +9,8 @@ public class NetworkTest : MonoBehaviour
     private void OnEnable()
     {
         // configs 
-        var configs = Resources.LoadAll("Configs");
-        foreach (var config in configs)
-        {
-            var textAsset = config as TextAsset;
-            if (textAsset != null)
-            {
-                if (textAsset.name == "MapXData")
-                {
-                    var bb = new ByteBuffer(textAsset.bytes);
-                    var map = MapXData.GetRoot(bb);
-                    for (int i = 0; i < map.RowsLength; i++)
-                    {
-                        var row = map.Rows(i);
-                        if (row.HasValue)
-                        {
-                            Log.D(row.Value.Id, row.Value.Name, row.Value);
-
-                            Log.D("Camp1");
-                            for (int j = 0; j < row.Value.Camp1Length; j++)
-                            {
-                                var v = row.Value.Camp1(j);
-                                if (v.HasValue)
-                                {
-                                    Log.D(v.Value.X, v.Value.Y, v.Value.Z);
-                                }
-                            }
-
-                            Log.D("Camp2");
-                            for (int j = 0; j < row.Value.Camp2Length; j++)
-                            {
-                                var v = row.Value.Camp2(j);
-                                if (v.HasValue)
-                                {
-                                    Log.D(v.Value.X, v.Value.Y, v.Value.Z);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        Configs.Instance.Init();
+        Configs.Instance.LogConfigs();
 
         Pinus.EventBus.OnHandshakeOver += OnHandshakeOver;
         EventDispatcher.AddListener<ByteBuffer>(Structs.FooBar.OnFoo.route, OnFoo, this);

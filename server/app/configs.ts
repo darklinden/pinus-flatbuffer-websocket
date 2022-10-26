@@ -45,7 +45,7 @@ export class ConfigsDataCache {
 
     public getMapData(id: number): proto.IMapXDataRowT {
         let data = this.getMapDataTable();
-        return data['' + id];
+        return data[id];
     }
 }
 
