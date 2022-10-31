@@ -1,4 +1,5 @@
 using System;
+using UnityWebSocket;
 
 namespace PinusUnity
 {
@@ -6,8 +7,8 @@ namespace PinusUnity
     {
         public void ConnectTimeout();
         public void OnOpen();
-        public void OnRecv(byte[] data);
-        public void OnError(Exception err);
+        public void OnRecv(PooledBuffer data);
+        public void OnError(string err);
         public void OnClose();
     }
 }

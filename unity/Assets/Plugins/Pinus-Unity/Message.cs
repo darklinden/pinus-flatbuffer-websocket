@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityWebSocket;
+using XPool;
 
 namespace PinusUnity
 {
@@ -38,15 +40,14 @@ namespace PinusUnity
             return len;
         }
 
-        public static int EncodeMessageFlag(MessageType type, bool compressRoute, byte[] buffer, int offset)
+        public static int EncodeMessageFlag(MessageType type, bool compressRoute, PooledBuffer buffer, int offset)
         {
             var typeValue = (int)type;
-            buffer[offset] = (byte)((typeValue << 1) | (compressRoute ? 1 : 0));
-
+            buffer.Write((byte)((typeValue << 1) | (compressRoute ? 1 : 0)), offset);
             return offset + MSG_FLAG_BYTES;
         }
 
-        public static int EncodeMessageId(int id, byte[] buffer, int offset)
+        public static int EncodeMessageId(int id, PooledBuffer buffer, int offset)
         {
             do
             {
@@ -57,7 +58,7 @@ namespace PinusUnity
                 {
                     tmp += 128;
                 }
-                buffer[offset++] = tmp;
+                buffer.Write(tmp, offset++);
 
                 id = next;
             } while (id != 0);
@@ -65,22 +66,21 @@ namespace PinusUnity
             return offset;
         }
 
-        public static int EncodeMessageRoute(int route, byte[] buffer, int offset)
+        public static int EncodeMessageRoute(int route, PooledBuffer buffer, int offset)
         {
             if (route > MSG_ROUTE_CODE_MAX)
             {
                 Log.E("route number is overflow");
             }
-            buffer[offset++] = (byte)((route >> 8) & 0xff);
-            buffer[offset++] = (byte)(route & 0xff);
+            buffer.Write((byte)((route >> 8) & 0xff), offset++);
+            buffer.Write((byte)(route & 0xff), offset++);
             return offset;
         }
 
-        public static int EncodeMessageRoute(string route, byte[] buffer, int offset)
+        public static int EncodeMessageRoute(string route, PooledBuffer buffer, int offset)
         {
-            buffer[offset++] = (byte)(route.Length & 0xff);
-
-            Utils.CopyArray(buffer, offset, route, 0, route.Length);
+            buffer.Write((byte)(route.Length & 0xff), offset++);
+            buffer.Write(route, offset);
             offset += route.Length;
             return offset;
         }
@@ -110,7 +110,7 @@ namespace PinusUnity
             int id,
             MessageType type,
             int route,
-            ref byte[] buffer,
+            PooledBuffer buffer,
             ref int offset)
         {
             // caculate message max length
@@ -146,7 +146,7 @@ namespace PinusUnity
             int id,
             MessageType type,
             string route,
-            ref byte[] buffer,
+            PooledBuffer buffer,
             ref int offset)
         {
             // caculate message max length
@@ -200,7 +200,7 @@ namespace PinusUnity
                 var i = 0;
                 do
                 {
-                    m = int.Parse(bytes[offset].ToString());
+                    m = (int)(bytes[offset]);
                     id += (m & 0x7f) << (7 * i);
                     offset++;
                     i++;
@@ -218,16 +218,7 @@ namespace PinusUnity
                 }
                 else
                 {
-                    var routeLen = bytes[offset++];
-                    if (routeLen > 0)
-                    {
-                        routeStr = Protocol.StrDecode(bytes, offset, routeLen);
-                    }
-                    else
-                    {
-                        routeStr = "";
-                    }
-                    offset += routeLen;
+                    throw new System.Exception("Message.Decode Has Removed String Route Support");
                 }
             }
 

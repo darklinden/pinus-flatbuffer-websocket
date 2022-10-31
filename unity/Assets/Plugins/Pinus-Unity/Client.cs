@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityWebSocket;
+using XPool;
 
 namespace PinusUnity
 {
@@ -25,7 +26,7 @@ namespace PinusUnity
 
         public void Connect()
         {
-            Utils.L("Pinus Client Connect", Url);
+            Log.D("Pinus Client Connect", Url);
 
             m_Ws = null;
             m_ManuallyClosed = false;
@@ -39,7 +40,7 @@ namespace PinusUnity
             EventBus.Instance.OnFrameUpdated -= OnFrameUpdated;
             EventBus.Instance.OnFrameUpdated += OnFrameUpdated;
 
-            Utils.L("Pinus Client InitSocket", Url);
+            Log.D("Pinus Client InitSocket", Url);
 
             try
             {
@@ -52,38 +53,39 @@ namespace PinusUnity
             }
             catch (Exception e)
             {
-                Utils.L("Pinus Client InitSocket Error", Url);
-                m_NetworkHandle.OnError(e);
+                Log.D("Pinus Client InitSocket Error", Url);
+                m_NetworkHandle.OnError(e.Message);
                 Close();
             }
         }
 
-        private void OnOpen(object sender, OpenEventArgs e)
+        private void OnOpen(object sender, WSEventArgs e)
         {
             m_ConnectPassed = 0;
             EventBus.Instance.OnFrameUpdated -= OnFrameUpdated;
-            Utils.L("Pinus Client OnOpen", Url);
+            Log.D("Pinus Client OnOpen", Url);
             m_NetworkHandle.OnOpen();
         }
 
-        private void OnMessage(object sender, MessageEventArgs e)
+        private void OnMessage(object sender, WSEventArgs e)
         {
-            m_NetworkHandle.OnRecv(e.RawData);
+            m_NetworkHandle.OnRecv(e.Data);
+            e.Release();
         }
 
-        private void OnError(object sender, ErrorEventArgs e)
+        private void OnError(object sender, WSEventArgs e)
         {
             Log.E("Pinus Client OnError", Url, e.Message);
             if (!m_ManuallyClosed)
             {
-                m_NetworkHandle.OnError(e.Exception);
+                m_NetworkHandle.OnError(e.Message);
             }
             Close();
         }
 
-        private void OnClose(object sender, CloseEventArgs e)
+        private void OnClose(object sender, WSEventArgs e)
         {
-            Utils.L("Pinus Client OnClose", Url);
+            Log.D("Pinus Client OnClose", Url);
             if (!m_ManuallyClosed)
             {
                 m_NetworkHandle.OnClose();
@@ -96,7 +98,7 @@ namespace PinusUnity
             m_ConnectPassed += Time.unscaledDeltaTime;
             if (m_ConnectPassed > ConnectTimeout)
             {
-                Log.E(Utils.TimeStr(), "Client connect Timeout", Url);
+                Log.E("Client connect Timeout", Url);
                 EventBus.Instance.OnFrameUpdated -= OnFrameUpdated;
 
                 Close();
@@ -104,7 +106,7 @@ namespace PinusUnity
             }
         }
 
-        public void SendBuffer(byte[] buffer)
+        public void SendBuffer(PooledBuffer buffer)
         {
             if (m_Ws != null)
             {
@@ -114,10 +116,10 @@ namespace PinusUnity
                 }
                 catch (Exception e)
                 {
-                    Utils.L("Pinus Client SendBuffer Error", Url);
+                    Log.D("Pinus Client SendBuffer Error", Url, e);
 
                     Close();
-                    m_NetworkHandle.OnError(e);
+                    m_NetworkHandle.OnError(e.Message);
                 }
             }
             else

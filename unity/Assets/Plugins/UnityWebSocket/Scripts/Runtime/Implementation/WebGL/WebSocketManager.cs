@@ -1,4 +1,4 @@
-#if !UNITY_EDITOR && UNITY_WEBGL
+#if (!UNITY_EDITOR && UNITY_WEBGL) || TEST_WEBGL
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -32,14 +32,14 @@ namespace UnityWebSocket
         public static extern int WebSocketSend(int instanceId, byte[] dataPtr, int dataLength);
 
         [DllImport("__Internal")]
-        public static extern int WebSocketSendStr(int instanceId, string data);
+        public static extern int WebSocketSendStr(int instanceId, string dataPtr);
 
         [DllImport("__Internal")]
         public static extern int WebSocketGetState(int instanceId);
 
         /* WebSocket JSLIB callback setters and other functions */
         [DllImport("__Internal")]
-        public static extern int WebSocketAllocate(string url, string binaryType);
+        public static extern int WebSocketAllocate(string url);
 
         [DllImport("__Internal")]
         public static extern int WebSocketAddSubProtocol(int instanceId, string protocol);
@@ -52,9 +52,6 @@ namespace UnityWebSocket
 
         [DllImport("__Internal")]
         public static extern void WebSocketSetOnMessage(OnMessageCallback callback);
-
-        [DllImport("__Internal")]
-        public static extern void WebSocketSetOnMessageStr(OnMessageStrCallback callback);
 
         [DllImport("__Internal")]
         public static extern void WebSocketSetOnError(OnErrorCallback callback);
@@ -70,7 +67,6 @@ namespace UnityWebSocket
         {
             WebSocketSetOnOpen(DelegateOnOpenEvent);
             WebSocketSetOnMessage(DelegateOnMessageEvent);
-            WebSocketSetOnMessageStr(DelegateOnMessageStrEvent);
             WebSocketSetOnError(DelegateOnErrorEvent);
             WebSocketSetOnClose(DelegateOnCloseEvent);
 
@@ -97,16 +93,6 @@ namespace UnityWebSocket
             }
         }
 
-        [MonoPInvokeCallback(typeof(OnMessageCallback))]
-        public static void DelegateOnMessageStrEvent(int instanceId, IntPtr msgStrPtr)
-        {
-            if (sockets.TryGetValue(instanceId, out var socket))
-            {
-                string msgStr = Marshal.PtrToStringAuto(msgStrPtr);
-                socket.HandleOnMessageStr(msgStr);
-            }
-        }
-
         [MonoPInvokeCallback(typeof(OnErrorCallback))]
         public static void DelegateOnErrorEvent(int instanceId, IntPtr errorPtr)
         {
@@ -127,10 +113,10 @@ namespace UnityWebSocket
             }
         }
 
-        internal static int AllocateInstance(string address, string binaryType)
+        internal static int AllocateInstance(string address)
         {
             if (!isInitialized) Initialize();
-            return WebSocketAllocate(address, binaryType);
+            return WebSocketAllocate(address);
         }
 
         internal static void Add(WebSocket socket)

@@ -1,5 +1,6 @@
-#if !UNITY_EDITOR && UNITY_WEBGL
+#if (!UNITY_EDITOR && UNITY_WEBGL) || TEST_WEBGL
 using System;
+using XPool;
 
 namespace UnityWebSocket
 {
@@ -8,12 +9,11 @@ namespace UnityWebSocket
         public string Address { get; private set; }
         public string[] SubProtocols { get; private set; }
         public WebSocketState ReadyState { get { return (WebSocketState)WebSocketManager.WebSocketGetState(instanceId); } }
-        public string BinaryType { get; set; } = "arraybuffer";
 
-        public event EventHandler<OpenEventArgs> OnOpen;
-        public event EventHandler<CloseEventArgs> OnClose;
-        public event EventHandler<ErrorEventArgs> OnError;
-        public event EventHandler<MessageEventArgs> OnMessage;
+        public event EventHandler<WSEventArgs> OnOpen;
+        public event EventHandler<WSEventArgs> OnClose;
+        public event EventHandler<WSEventArgs> OnError;
+        public event EventHandler<WSEventArgs> OnMessage;
 
         internal int instanceId = 0;
 
@@ -39,7 +39,7 @@ namespace UnityWebSocket
 
         internal void AllocateInstance()
         {
-            instanceId = WebSocketManager.AllocateInstance(this.Address, this.BinaryType);
+            instanceId = WebSocketManager.AllocateInstance(this.Address);
             Log($"Allocate socket with instanceId: {instanceId}");
             if (this.SubProtocols == null) return;
             foreach (var protocol in this.SubProtocols)
@@ -76,49 +76,50 @@ namespace UnityWebSocket
             if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
         }
 
-        public void SendAsync(string text)
+        public void SendAsync(PooledBuffer data)
         {
-            Log($"Send, type: {Opcode.Text}, size: {text.Length}");
-            int code = WebSocketManager.WebSocketSendStr(instanceId, text);
+            Log($"Send, size: {data.Length}");
+            int code = WebSocketManager.WebSocketSend(instanceId, data.Bytes, data.Length);
             if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
-        }
-
-        public void SendAsync(byte[] data)
-        {
-            Log($"Send, type: {Opcode.Binary}, size: {data.Length}");
-            int code = WebSocketManager.WebSocketSend(instanceId, data, data.Length);
-            if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
+            data.Release();
         }
 
         internal void HandleOnOpen()
         {
             Log("OnOpen");
-            OnOpen?.Invoke(this, new OpenEventArgs());
+            var evt = WSEventArgs.Create();
+            evt.EventType = WSEventType.Open;
+            OnOpen?.Invoke(this, evt);
         }
 
         internal void HandleOnMessage(byte[] rawData)
         {
-            Log($"OnMessage, type: {Opcode.Binary}, size: {rawData.Length}");
-            OnMessage?.Invoke(this, new MessageEventArgs(Opcode.Binary, rawData));
-        }
-
-        internal void HandleOnMessageStr(string data)
-        {
-            Log($"OnMessage, type: {Opcode.Text}, size: {data.Length}");
-            OnMessage?.Invoke(this, new MessageEventArgs(Opcode.Text, data));
+            Log($"OnMessage, size: {rawData.Length}");
+            var evt = WSEventArgs.Create();
+            evt.EventType = WSEventType.Message;
+            evt.Data = PooledBuffer.Create();
+            evt.Data.Write(rawData, 0, rawData.Length, 0);
+            OnMessage?.Invoke(this, evt);
         }
 
         internal void HandleOnClose(ushort code, string reason)
         {
             Log($"OnClose, code: {code}, reason: {reason}");
-            OnClose?.Invoke(this, new CloseEventArgs(code, reason));
+            var evt = WSEventArgs.Create();
+            evt.EventType = WSEventType.Close;
+            evt.CloseCode = code;
+            evt.Message = reason;
+            OnClose?.Invoke(this, evt);
             WebSocketManager.Remove(instanceId);
         }
 
         internal void HandleOnError(string msg)
         {
             Log("OnError, error: " + msg);
-            OnError?.Invoke(this, new ErrorEventArgs(msg));
+            var evt = WSEventArgs.Create();
+            evt.EventType = WSEventType.Error;
+            evt.Message = msg;
+            OnError?.Invoke(this, evt);
         }
 
         internal static string GetErrorMessageFromCode(int errorCode)

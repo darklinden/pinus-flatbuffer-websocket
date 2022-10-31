@@ -14,133 +14,112 @@
  * limitations under the License.
  */
 
-// There are three conditional compilation symbols that have an impact on performance/features of this ByteBuffer implementation.
-//
-//      UNSAFE_BYTEBUFFER
-//          This will use unsafe code to manipulate the underlying byte array. This
-//          can yield a reasonable performance increase.
-//
-//      BYTEBUFFER_NO_BOUNDS_CHECK
-//          This will disable the bounds check asserts to the byte array. This can
-//          yield a small performance gain in normal code.
-//
-//      ENABLE_SPAN_T
-//          This will enable reading and writing blocks of memory with a Span<T> instead of just
-//          T[].  You can also enable writing directly to shared memory or other types of memory
-//          by providing a custom implementation of ByteBufferAllocator.
-//          ENABLE_SPAN_T also requires UNSAFE_BYTEBUFFER to be defined, or .NET
-//          Standard 2.1.
-//
-// Using UNSAFE_BYTEBUFFER and BYTEBUFFER_NO_BOUNDS_CHECK together can yield a
-// performance gain of ~15% for some operations, however doing so is potentially
-// dangerous. Do so at your own risk!
-//
-
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
-using System.Buffers.Binary;
-#endif
-
-#if ENABLE_SPAN_T && !UNSAFE_BYTEBUFFER && !NETSTANDARD2_1
-#warning ENABLE_SPAN_T requires UNSAFE_BYTEBUFFER to also be defined
-#endif
+using XPool;
+using UnityWebSocket;
 
 namespace Google.FlatBuffers
 {
-    public abstract class ByteBufferAllocator
+    public class ByteBuffer : IRelease
     {
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
-        public abstract Span<byte> Span { get; }
-        public abstract ReadOnlySpan<byte> ReadOnlySpan { get; }
-        public abstract Memory<byte> Memory { get; }
-        public abstract ReadOnlyMemory<byte> ReadOnlyMemory { get; }
-
-#else
-        public byte[] Buffer
+        public class Pool
         {
-            get;
-            protected set;
-        }
-#endif
+            const int kMaxBucketSize = 64 * 10;
 
-        public int Length
+            readonly Stack<ByteBuffer> m_Pool;
+
+            public Pool()
+            {
+                m_Pool = new Stack<ByteBuffer>();
+            }
+
+            /// <summary>
+            /// The array length is not always accurate.
+            /// </summary>
+            /// <exception cref="ArgumentOutOfRangeException"></exception>
+            public ByteBuffer Rent()
+            {
+                if (m_Pool.Count != 0)
+                {
+                    // Log.D("PooledList Rent from pool");
+                    return m_Pool.Pop();
+                }
+
+                return new ByteBuffer();
+            }
+
+            /// <summary>
+            /// <para> Return the array to the pool. </para>
+            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
+            /// </summary>
+            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
+            public void Return(ByteBuffer buffer)
+            {
+                if (buffer == null) return;
+                if (m_Pool.Count < kMaxBucketSize)
+                {
+                    m_Pool.Push(buffer);
+                }
+                else
+                {
+                    Log.E("PooledList Pool is full");
+                }
+            }
+
+            /// <summary>
+            /// <para> Return the array to the pool and set array reference to null. </para>
+            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
+            /// </summary>
+            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
+            public void Return(ref ByteBuffer buffer)
+            {
+                Return(buffer);
+                buffer = null;
+            }
+        }
+
+        internal static readonly Pool BufferPool = new Pool();
+
+        internal static ByteBuffer Create(int initialSize)
         {
-            get;
-            protected set;
+            var buffer = BufferPool.Rent();
+            buffer.RetainCount = 0;
+            buffer._buffer.Resize(initialSize);
+            return buffer;
         }
 
-        public abstract void GrowFront(int newSize);
-    }
-
-    public sealed class ByteArrayAllocator : ByteBufferAllocator
-    {
-        private byte[] _buffer;
-
-        public ByteArrayAllocator(byte[] buffer)
-        {
-            _buffer = buffer;
-            InitBuffer();
-        }
-
-        public override void GrowFront(int newSize)
-        {
-            if ((Length & 0xC0000000) != 0)
-                throw new Exception(
-                    "ByteBuffer: cannot grow buffer beyond 2 gigabytes.");
-
-            if (newSize < Length)
-                throw new Exception("ByteBuffer: cannot truncate buffer.");
-
-            byte[] newBuffer = new byte[newSize];
-            System.Buffer.BlockCopy(_buffer, 0, newBuffer, newSize - Length, Length);
-            _buffer = newBuffer;
-            InitBuffer();
-        }
-
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
-        public override Span<byte> Span => _buffer;
-        public override ReadOnlySpan<byte> ReadOnlySpan => _buffer;
-        public override Memory<byte> Memory => _buffer;
-        public override ReadOnlyMemory<byte> ReadOnlyMemory => _buffer;
-#endif
-
-        private void InitBuffer()
-        {
-            Length = _buffer.Length;
-#if !ENABLE_SPAN_T
-            Buffer = _buffer;
-#endif
-        }
-    }
-
-    /// <summary>
-    /// Class to mimic Java's ByteBuffer which is used heavily in Flatbuffers.
-    /// </summary>
-    public class ByteBuffer
-    {
-        private ByteBufferAllocator _buffer;
+        private ByteArrayAllocator _buffer;
         private int _pos;  // Must track start of the buffer.
 
-        public ByteBuffer(ByteBufferAllocator allocator, int position)
+        public ByteBuffer()
         {
-            _buffer = allocator;
-            _pos = position;
+            _buffer = new ByteArrayAllocator();
+            _pos = 0;
         }
 
-        public ByteBuffer(int size) : this(new byte[size]) { }
-
-        public ByteBuffer(byte[] buffer) : this(buffer, 0) { }
-
-        public ByteBuffer(byte[] buffer, int pos)
+        public ByteBuffer(byte[] data)
         {
-            _buffer = new ByteArrayAllocator(buffer);
+            _buffer = new ByteArrayAllocator();
+            _buffer.SetBytes(data);
+            _pos = 0;
+        }
+
+        public void SetBytes(byte[] bytes, int pos)
+        {
+            _buffer.SetBytes(bytes);
             _pos = pos;
+        }
+
+        public void CopyBytes(byte[] bytes, int pos, int length)
+        {
+            _buffer.Resize(length);
+            _pos = _buffer.Length - length;
+            System.Buffer.BlockCopy(bytes, pos, _buffer.Buffer, _pos, length);
         }
 
         public int Position
@@ -151,6 +130,19 @@ namespace Google.FlatBuffers
 
         public int Length { get { return _buffer.Length; } }
 
+        int RetainCount { get; set; }
+        int IRelease.RetainCount { get => RetainCount; set => RetainCount = value; }
+        public void DoRelease()
+        {
+            Clear();
+            BufferPool.Return(this);
+        }
+
+        private void Clear()
+        {
+            _buffer.Clear();
+        }
+
         public void Reset()
         {
             _pos = 0;
@@ -160,7 +152,9 @@ namespace Google.FlatBuffers
         // The new ByteBuffer's position will be same as this buffer's.
         public ByteBuffer Duplicate()
         {
-            return new ByteBuffer(_buffer, Position);
+            ByteBuffer bb = new ByteBuffer();
+            bb.CopyBytes(_buffer.Buffer, _pos, _buffer.Length - _pos);
+            return bb;
         }
 
         // Increases the size of the ByteBuffer, and copies the old data towards
@@ -175,9 +169,9 @@ namespace Google.FlatBuffers
             return ToArray<byte>(pos, len);
         }
 
-        public void CopyTo(ref byte[] dst, int dstPos)
+        public void CopyTo(PooledBuffer dst, int dstPos)
         {
-            System.Buffer.BlockCopy(_buffer.Buffer, Position, dst, dstPos, Length - Position);
+            dst.Write(_buffer.Buffer, Position, Length - Position, dstPos);
         }
 
         /// <summary>

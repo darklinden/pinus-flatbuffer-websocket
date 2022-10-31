@@ -1,11 +1,10 @@
 ﻿#define FORCE_ENABLE_LOG
-#define LOG_TO_FILE
+// #define LOG_TO_FILE
 #define LOG_TO_CONSOLE
 #define LOG_WITH_TIME
 
-#if !FORCE_ENABLE_LOG
 #define CONDITIONAL_CLOSE_LOG
-#endif
+
 
 using System;
 using System.Diagnostics;
@@ -184,7 +183,7 @@ public static class Log
     }
 
 #if CONDITIONAL_CLOSE_LOG
-    [Conditional("DEBUG")]
+    [Conditional("CONDITIONAL_CLOSE")]
 #endif
     public static void D(object message0, object message1 = null, object message2 = null, object message3 = null,
             object message4 = null, object message5 = null, object message6 = null, object message7 = null,
@@ -208,7 +207,7 @@ public static class Log
     }
 
 #if CONDITIONAL_CLOSE_LOG
-    [Conditional("DEBUG")]
+    [Conditional("CONDITIONAL_CLOSE")]
 #endif
     public static void W(object message0, object message1 = null, object message2 = null,
             object message3 = null,
@@ -233,7 +232,7 @@ public static class Log
     }
 
 #if CONDITIONAL_CLOSE_LOG
-    [Conditional("DEBUG")]
+    [Conditional("CONDITIONAL_CLOSE")]
 #endif
     public static void E(object message0, object message1 = null, object message2 = null, object message3 = null,
             object message4 = null, object message5 = null, object message6 = null, object message7 = null,
@@ -252,5 +251,32 @@ public static class Log
 #endif
 
         UnityEngine.Debug.LogError(result);
+    }
+
+#if CONDITIONAL_CLOSE_LOG
+    [Conditional("CONDITIONAL_CLOSE")]
+#endif
+    public static void AssertIsTrue(bool value, object message0 = null, object message1 = null, object message2 = null, object message3 = null,
+            object message4 = null, object message5 = null, object message6 = null, object message7 = null,
+            object message8 = null, object message9 = null, object message10 = null, object message11 = null,
+            object message12 = null, object message13 = null, object message14 = null, object message15 = null)
+    {
+        if (!value)
+        {
+            if (message0 == null)
+            {
+                StackTrace stackTrace = new StackTrace();
+                StackFrame stackFrame = stackTrace.GetFrame(1);
+                var methodBase = stackFrame.GetMethod();
+                E("IsTrue failed", methodBase.Name);
+            }
+            else
+            {
+                E(message0, message1, message2, message3,
+                    message4, message5, message6, message7,
+                    message8, message9, message10, message11,
+                    message12, message13, message14, message15);
+            }
+        }
     }
 }

@@ -1,3 +1,5 @@
+using UnityWebSocket;
+using XPool;
 
 namespace PinusUnity
 {
@@ -6,15 +8,16 @@ namespace PinusUnity
     {
         internal const int PKG_HEAD_BYTES = 4;
 
-        internal static byte[] SimplePack(PackageType type)
+        internal static PooledBuffer SimplePack(PackageType type)
         {
             var length = 0;
-            var buffer = new byte[PKG_HEAD_BYTES];
+            var buffer = PooledBuffer.Create();
+            buffer.Resize(PKG_HEAD_BYTES);
             var index = 0;
-            buffer[index++] = (byte)((int)type & 0xff);
-            buffer[index++] = (byte)((length >> 16) & 0xff);
-            buffer[index++] = (byte)((length >> 8) & 0xff);
-            buffer[index++] = (byte)(length & 0xff);
+            buffer.Write((byte)((int)type & 0xff), index++);
+            buffer.Write((byte)((length >> 16) & 0xff), index++);
+            buffer.Write((byte)((length >> 8) & 0xff), index++);
+            buffer.Write((byte)(length & 0xff), index++);
             return buffer;
         }
 
@@ -41,13 +44,13 @@ namespace PinusUnity
          * @return {Uint8Array}        new byte array that contains encode result
          */
 
-        internal static void Encode(PackageType type, ref byte[] buffer, int messageLen)
+        internal static void Encode(PackageType type, PooledBuffer buffer, int length)
         {
             var index = 0;
-            buffer[index++] = (byte)((int)type & 0xff);
-            buffer[index++] = (byte)((messageLen >> 16) & 0xff);
-            buffer[index++] = (byte)((messageLen >> 8) & 0xff);
-            buffer[index++] = (byte)(messageLen & 0xff);
+            buffer.Write((byte)((int)type & 0xff), index++);
+            buffer.Write((byte)((length >> 16) & 0xff), index++);
+            buffer.Write((byte)((length >> 8) & 0xff), index++);
+            buffer.Write((byte)(length & 0xff), index++);
         }
 
         /**
@@ -57,12 +60,12 @@ namespace PinusUnity
          * @param  {Uint8Array} buffer byte array containing package content
          * @return {Object}           {type: package type, buffer: body byte array}
          */
-        internal static PackageType Decode(byte[] bytes, ref int offset, out int dataLength)
+        internal static PackageType Decode(PooledBuffer buffer, ref int offset, out int dataLength)
         {
-            if (offset < bytes.Length)
+            if (offset < buffer.Length)
             {
-                var type = (PackageType)bytes[offset++];
-                dataLength = (bytes[offset++]) << 16 | (bytes[offset++]) << 8 | bytes[offset++];
+                var type = (PackageType)buffer.Bytes[offset++];
+                dataLength = (buffer.Bytes[offset++]) << 16 | (buffer.Bytes[offset++]) << 8 | buffer.Bytes[offset++];
                 return type;
             }
             dataLength = 0;

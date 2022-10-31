@@ -3,6 +3,7 @@ using PinusUnity;
 using UnityEngine;
 using Google.FlatBuffers;
 using Proto;
+using XPool;
 
 public class NetworkTest : MonoBehaviour
 {
@@ -21,26 +22,38 @@ public class NetworkTest : MonoBehaviour
 
     private void OnBar(ByteBuffer e)
     {
-        throw new NotImplementedException();
+        var foo = Foo.GetRoot(e);
+        Log.D("OnBar Return", foo.Foo_);
+        e.Release();
     }
 
     private void OnFoo(ByteBuffer e)
     {
-        throw new NotImplementedException();
+        var bar = Bar.GetRoot(e);
+        Log.D("OnFoo Return", bar.Bar_);
+        e.Release();
     }
 
+    private bool m_TestStarted = false;
     private void OnHandshakeOver(string url)
     {
-        var builder = FlatBufferBuilder.InstanceDefault;
-        Foo.StartFoo(builder);
-        Foo.AddFoo(builder, 1121212121212121212L);
-        var foo = Foo.End(builder);
-        builder.Finish(foo.Value);
+        Log.D("NetworkTest.OnHandshakeOver");
 
-        Pinus.Request(Structs.FooBar.OnFoo.route, builder.DataBuffer, (ByteBuffer data) =>
+        m_TestStarted = true;
+    }
+
+    private void Update()
+    {
+        if (m_TestStarted)
         {
-            var bar = Bar.GetRoot(data);
-            Log.D("OnFoo Return", bar.Bar_);
-        });
+            var builder = FlatBufferBuilder.InstanceDefault;
+            Foo.StartFoo(builder);
+            Foo.AddFoo(builder, 1121212121212121212L);
+            var foo = Foo.End(builder);
+            builder.Finish(foo.Value);
+
+            Pinus.Request(Structs.FooBar.OnFoo.route, builder.DataBuffer);
+            builder.Clear();
+        }
     }
 }

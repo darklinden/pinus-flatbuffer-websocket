@@ -7,7 +7,7 @@ public static class Pinus
     public static Network Network { get; set; }
     public static EventBus EventBus { get => EventBus.Instance; }
 
-    public static void Connect(string url, bool autoReconnect = true)
+    public static void Connect(string url, bool autoReconnect = false)
     {
         if (Network == null) Network = Network.Default;
         Network.Connect(url, autoReconnect);
@@ -23,7 +23,7 @@ public static class Pinus
         if (Network != null) Network.SendMessage(requestId, route, msg);
     }
 
-    public static void Request(string route, ByteBuffer msg, Action<ByteBuffer> cb = null)
+    public static void Request(string route, ByteBuffer msg = null, Action<ByteBuffer> cb = null)
     {
         if (Network != null) Network.Request(route, msg, cb);
     }

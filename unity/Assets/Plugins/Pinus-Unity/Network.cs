@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using Google.FlatBuffers;
 using SimpleJSON;
+using XPool;
+using UnityWebSocket;
+
 
 namespace PinusUnity
 {
@@ -76,8 +79,7 @@ namespace PinusUnity
         }
 
         // Map from request id to route
-        protected Dictionary<int, string> m_RequestRouteMap = new Dictionary<int, string>();
-
+        protected Dictionary<int, int> m_RequestRouteMap = new Dictionary<int, int>(64);
         // callback from request id
         protected Dictionary<int, Action<ByteBuffer>> m_RequestCallbackMap = new Dictionary<int, Action<ByteBuffer>>();
 
@@ -92,26 +94,15 @@ namespace PinusUnity
         }
 
         // --- Socket begin ---
-        private static byte[] m_HandshakeBuffer = null;
-        private static byte[] HandshakeBuff
+        private const string HANDSHAKEBUFFER = "{\"sys\":{\"type\":\"ws\",\"version\":\"0.0.1\",\"rsa\":{}},\"user\":{}}";
+        private static PooledBuffer HandshakeBuffer
         {
             get
             {
-                if (m_HandshakeBuffer == null)
-                {
-                    var offset = Package.PKG_HEAD_BYTES;
-                    var str = "{\"sys\":{\"type\":\"ws\",\"version\":\"0.0.1\",\"rsa\":{}},\"user\":{}}";
-                    // length = Package.PKG_HEAD_BYTES + str.Length
-                    var len = offset + str.Length;
-                    var handshakeBuff = new byte[len];
-                    // fill json utf-8 bytes
-                    System.Text.Encoding.UTF8.GetBytes(str, 0, str.Length, handshakeBuff, offset);
-                    // fill head
-                    Package.Encode(PackageType.Handshake, ref handshakeBuff, len - Package.PKG_HEAD_BYTES);
-                    Log.D(handshakeBuff);
-                    m_HandshakeBuffer = handshakeBuff;
-                }
-                return m_HandshakeBuffer;
+                var buffer = PooledBuffer.Create();
+                buffer.Write(HANDSHAKEBUFFER, Package.PKG_HEAD_BYTES);
+                Package.Encode(PackageType.Handshake, buffer, buffer.Length - Package.PKG_HEAD_BYTES);
+                return buffer;
             }
         }
 
@@ -126,19 +117,19 @@ namespace PinusUnity
 
             ResetReconnect();
 
-            Client.SendBuffer(HandshakeBuff);
+            Client.SendBuffer(HandshakeBuffer);
         }
 
-        public void OnRecv(byte[] data)
+        public void OnRecv(PooledBuffer data)
         {
             ProcessPackage(data);
 
             // new package arrived, update the heartbeat timeout
-            // Utils.L("OnRecv RenewHeartbeatTimeout");
+            // Log.D("OnRecv RenewHeartbeatTimeout");
             // RenewHeartbeatTimeout();
         }
 
-        public void OnError(Exception err)
+        public void OnError(string err)
         {
             HandshakeEnded = false;
             EventBus.Instance.Error(Url, err);
@@ -160,7 +151,7 @@ namespace PinusUnity
         public void ConnectTimeout()
         {
             HandshakeEnded = false;
-            EventBus.Instance.Error(Url, new Exception("Connect Timeout"));
+            EventBus.Instance.Error(Url, "Connect Timeout");
             if (ReconnectAttempt < MaxReconnectAttempts)
             {
                 Reconnecting = true;
@@ -186,19 +177,18 @@ namespace PinusUnity
         void OnHandshake(byte[] data, int offset, int length)
         {
             var str = Protocol.StrDecode(data, offset, length);
-            Log.D("OnHandshake", str);
             var json = JSON.Parse(str);
 
             var code = json.HasKey("code") ? json["code"].AsInt : -1;
             if (code == RES_OLD_CLIENT)
             {
-                EventBus.Instance.HandshakeError(Url, new Exception("client version not fullfill"));
+                EventBus.Instance.HandshakeError(Url, "client version not fullfill");
                 return;
             }
 
             if (code != RES_OK)
             {
-                EventBus.Instance.HandshakeError(Url, new Exception("handshake fail"));
+                EventBus.Instance.HandshakeError(Url, "handshake fail");
                 return;
             }
 
@@ -266,7 +256,7 @@ namespace PinusUnity
                 if (HeartbeatPassed > HeartbeatInterval)
                 {
                     Client.SendBuffer(Package.SimplePack(PackageType.Heartbeat));
-                    Utils.L("SendHeartbeat RenewHeartbeatTimeout");
+                    Log.D("SendHeartbeat RenewHeartbeatTimeout");
                     RenewHeartbeatTimeout();
                 }
                 return;
@@ -274,7 +264,7 @@ namespace PinusUnity
 
             if (HeartbeatPassed > HeartbeatTimeout)
             {
-                Utils.L("Pinus Server Heartbeat Timeout");
+                Log.D("Pinus Server Heartbeat Timeout");
                 if (ReconnectAttempt < MaxReconnectAttempts)
                 {
                     Reconnecting = true;
@@ -298,7 +288,8 @@ namespace PinusUnity
             {
                 if (m_RequestRouteMap.ContainsKey(id))
                 {
-                    routeStr = m_RequestRouteMap[id];
+                    var rCode = m_RequestRouteMap[id];
+                    routeStr = m_RouteMapBack[rCode];
                     m_RequestRouteMap.Remove(id);
                 }
                 else
@@ -320,8 +311,9 @@ namespace PinusUnity
                 }
             }
 
-            var bb = new ByteBuffer(bytes);
-            bb.Position = bodyOffset;
+            Log.D("Pinus Recv", routeStr, "Data Length", bodyLength);
+            var bb = ByteBuffer.Create(bytes.Length);
+            bb.CopyBytes(bytes, bodyOffset, bodyLength);
 
             if (id != 0)
             {
@@ -347,17 +339,17 @@ namespace PinusUnity
             Client.Close();
         }
 
-        internal void ProcessPackage(byte[] bytes)
+        internal void ProcessPackage(PooledBuffer buffer)
         {
             int offset = 0;
             int length = 0;
 
-            var type = Package.Decode(bytes, ref offset, out length);
+            var type = Package.Decode(buffer, ref offset, out length);
             while (type != PackageType.Unknown)
             {
-                ProcessMessage(type, bytes, offset, length);
+                ProcessMessage(type, buffer.Bytes, offset, length);
                 offset += length;
-                type = Package.Decode(bytes, ref offset, out length);
+                type = Package.Decode(buffer, ref offset, out length);
             }
         }
 
@@ -409,7 +401,35 @@ namespace PinusUnity
             Client.Close();
         }
 
-        private byte[] m_SendBuffer = new byte[4 * 1024];
+        public void SendMessage(int requestId, int routeCode, ByteBuffer msg)
+        {
+            UnityEngine.Profiling.Profiler.BeginSample("Pinus.Network.SendMessage");
+            Log.D("Pinus Network SendMessage", requestId, routeCode);
+
+            var type = requestId > 0 ? MessageType.REQUEST : MessageType.NOTIFY;
+            var dataLen = msg != null ? msg.Length - msg.Position : 0;
+            var offset = Package.PKG_HEAD_BYTES;
+
+            var buffer = PooledBuffer.Create();
+            buffer.Resize(dataLen + 16);
+            // encode message header
+            Message.Encode(requestId, type, routeCode, buffer, ref offset);
+
+            // copy data body
+            if (dataLen > 0)
+            {
+                msg.CopyTo(buffer, offset);
+                offset += dataLen;
+            }
+
+            // encode package header
+            Package.Encode(PackageType.Data, buffer, offset - Package.PKG_HEAD_BYTES);
+            UnityEngine.Profiling.Profiler.EndSample();
+
+            // send data
+            Client.SendBuffer(buffer);
+        }
+
         public void SendMessage(int requestId, string route, ByteBuffer msg)
         {
             if (String.IsNullOrEmpty(route))
@@ -417,46 +437,8 @@ namespace PinusUnity
                 Log.E("Pinus Network Notify Error: Empty Route");
                 return;
             }
-
-            Utils.L("Pinus Network SendMessage", requestId, route, msg);
-
-            var type = requestId > 0 ? MessageType.REQUEST : MessageType.NOTIFY;
-
-            var routeCode = 0;
-            if (!m_RouteMap.TryGetValue(route, out routeCode)) routeCode = 0;
-
-            // encode data to m_SendBuffer
-            var dataLen = msg.Length - msg.Position;
-
-            // seed Package header
-            var offset = Package.PKG_HEAD_BYTES;
-
-            // encode message header
-            if (routeCode == 0)
-            {
-                Message.Encode(requestId, type, route, ref m_SendBuffer, ref offset);
-            }
-            else
-            {
-                Message.Encode(requestId, type, routeCode, ref m_SendBuffer, ref offset);
-            }
-
-            // copy data body
-            if (dataLen > 0)
-            {
-                msg.CopyTo(ref m_SendBuffer, offset);
-                offset += dataLen;
-            }
-
-            // encode package header
-            Package.Encode(PackageType.Data, ref m_SendBuffer, offset - Package.PKG_HEAD_BYTES);
-
-            // new buffer to send
-            var buffer = new byte[offset];
-            System.Buffer.BlockCopy(m_SendBuffer, 0, buffer, 0, offset);
-
-            // send data
-            Client.SendBuffer(buffer);
+            var routeCode = m_RouteMap[route];
+            SendMessage(requestId, routeCode, msg);
         }
 
         public void Request(string route, ByteBuffer msg, Action<ByteBuffer> cb = null)
@@ -469,8 +451,12 @@ namespace PinusUnity
 
             var requestId = GenerateUniqueRequestId();
             SendMessage(requestId, route, msg);
-            if (cb != null) m_RequestCallbackMap.Add(requestId, (e) => cb(e));
-            m_RequestRouteMap.Add(requestId, route);
+            if (cb != null)
+            {
+                m_RequestCallbackMap.Add(requestId, cb);
+            }
+            var routeCode = m_RouteMap[route];
+            m_RequestRouteMap.Add(requestId, routeCode);
         }
 
         public void Notify(string route, ByteBuffer data)
