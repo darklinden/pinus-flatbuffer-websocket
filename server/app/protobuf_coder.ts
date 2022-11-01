@@ -93,8 +93,8 @@ let composePush = function (server: any, route: string, msgBody: any) {
     msgBody = encodeBody(server, route, msgBody);
     // encode use dictionary
     let compressRoute = false;
-    if (!!server.dictionary) {
-        let dict = server.dictionary.getDict();
+    if (!!server.connector.dictionary) {
+        let dict = server.connector.dictionary.getDict();
         if (!!server.connector.useDict && !!dict[route]) {
             route = dict[route];
             compressRoute = true;

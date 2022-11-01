@@ -8,6 +8,8 @@ export default function (app: Application) {
     return new Handler(app);
 }
 
+const channelName = 'foobar';
+
 export class Handler {
     constructor(private app: Application) {
 
@@ -29,7 +31,26 @@ export class Handler {
         console.log(str);
     }
 
-    private onFooReturnBuilder = new flatbuffers.Builder(16);
+    /**
+     * User log out handler
+     *
+     * @param {Object} app current application
+     * @param {Object} session current session object
+     *
+     */
+    onUserLeave(session: FrontendSession) {
+        if (!session || !session.uid) {
+            return;
+        }
+        console.log(session.uid, 'leave');
+        let channel = this.app.channelService.getChannel(channelName, false);
+        // leave channel
+        if (!!channel) {
+            channel.leave(session.uid, session.frontendId);
+        }
+    }
+
+    private barBuilder = new flatbuffers.Builder(16);
 
     /**
      *
@@ -37,20 +58,50 @@ export class Handler {
      * @param  {Object}   session current session object
      */
     @MarkRoute('FooBar', proto.Foo, proto.Bar)
-    async onFoo(msg: any, session: FrontendSession) {
+    async callFoo(msg: any, session: FrontendSession) {
         const req = msg as proto.IFoo;
+        // bind userid with session
+        let uid = req.foo();
+        let uid_str = uid.toString();
 
-        console.log('onFoo', req.foo());
+        if (!session.uid) {
+            await session.abind(uid_str);
+            session.on('closed', this.onUserLeave.bind(this));
 
-        this.onFooReturnBuilder.clear();
-        let bar = new proto.BarT(req.foo()).pack(this.onFooReturnBuilder);
-        this.onFooReturnBuilder.finish(bar);
-        let buff = this.onFooReturnBuilder.asUint8Array();
+            // enter channel
+            let channel = this.app.channelService.getChannel(channelName, true);
+            channel.add(uid_str, session.frontendId);
+        }
+
+        this.barBuilder.clear();
+        let bar = new proto.BarT(req.foo()).pack(this.barBuilder);
+        this.barBuilder.finish(bar);
+        let buff = this.barBuilder.asUint8Array();
         this.logBytes(buff);
+
+        this.delayPush(session, uid);
+
         return buff;
     }
 
-    private onBarReturnBuilder = new flatbuffers.Builder(16);
+    @MarkRoute('FooBar', null, proto.Bar)
+    private pushBar() { }
+
+    private async delayPush(session: FrontendSession, uid: bigint) {
+        let timer = setInterval(() => {
+            clearInterval(timer);
+
+            this.barBuilder.clear();
+            let bar = new proto.BarT(uid).pack(this.barBuilder);
+            this.barBuilder.finish(bar);
+            let buff = this.barBuilder.asUint8Array();
+
+            let channel = this.app.channelService.getChannel(channelName, true);
+            channel.apushMessage(Structs.FooBar.PushBar.route, buff, session.frontendId);
+        }, 100);
+    }
+
+    private fooBuilder = new flatbuffers.Builder(16);
 
     /**
      *
@@ -58,54 +109,16 @@ export class Handler {
      * @param  {Object}   session current session object
      */
     @MarkRoute('FooBar', proto.Bar, proto.Foo)
-    async onBar(msg: any, session: FrontendSession) {
+    async callBar(msg: any, session: FrontendSession) {
         const req = msg as proto.IBar;
 
         console.log('onBar', req.bar());
 
-        this.onBarReturnBuilder.clear();
-        let foo = new proto.FooT(req.bar()).pack(this.onBarReturnBuilder);
-        this.onBarReturnBuilder.finish(foo);
-        let buff = this.onBarReturnBuilder.asUint8Array();
+        this.fooBuilder.clear();
+        let foo = new proto.FooT(req.bar()).pack(this.fooBuilder);
+        this.fooBuilder.finish(foo);
+        let buff = this.fooBuilder.asUint8Array();
         this.logBytes(buff);
         return buff;
     }
-
-    // /**
-    //  * New client entry.
-    //  *
-    //  * @param  {Object}   msg     request message
-    //  * @param  {Object}   session current session object
-    //  */
-    // async entry(msg: any, session: FrontendSession) {
-    //     return { code: 200, msg: 'game server is ok.' };
-    // }
-
-    // /**
-    //  * Publish route for mqtt connector.
-    //  *
-    //  * @param  {Object}   msg     request message
-    //  * @param  {Object}   session current session object
-    //  */
-    // async publish(msg: any, session: FrontendSession) {
-    //     let result = {
-    //         topic: 'publish',
-    //         payload: JSON.stringify({ code: 200, msg: 'publish message is ok.' })
-    //     };
-    //     return result;
-    // }
-
-    // /**
-    //  * Subscribe route for mqtt connector.
-    //  *
-    //  * @param  {Object}   msg     request message
-    //  * @param  {Object}   session current session object
-    //  */
-    // async subscribe(msg: any, session: FrontendSession) {
-    //     let result = {
-    //         topic: 'subscribe',
-    //         payload: JSON.stringify({ code: 200, msg: 'subscribe message is ok.' })
-    //     };
-    //     return result;
-    // }
 }

@@ -14,23 +14,23 @@ public class NetworkTest : MonoBehaviour
         Configs.Instance.LogConfigs();
 
         Pinus.EventBus.OnHandshakeOver += OnHandshakeOver;
-        EventDispatcher.AddListener<ByteBuffer>(Structs.FooBar.OnFoo.route, OnFoo, this);
-        EventDispatcher.AddListener<ByteBuffer>(Structs.FooBar.OnBar.route, OnBar, this);
+        EventDispatcher.AddListener<ByteBuffer>(Structs.FooBar.PushBar.route, OnPushBar, this);
+        EventDispatcher.AddListener<ByteBuffer>(Structs.FooBar.CallFoo.route, OnCallFooResp, this);
 
         Pinus.Connect("ws://127.0.0.1:3010");
     }
 
-    private void OnBar(ByteBuffer e)
+    private void OnPushBar(ByteBuffer e)
     {
-        var foo = Foo.GetRoot(e);
-        Log.D("OnBar Return", foo.Foo_);
+        var bar = Bar.GetRoot(e);
+        Log.D("OnPushBar", bar.Bar_);
         e.Release();
     }
 
-    private void OnFoo(ByteBuffer e)
+    private void OnCallFooResp(ByteBuffer e)
     {
         var bar = Bar.GetRoot(e);
-        Log.D("OnFoo Return", bar.Bar_);
+        Log.D("OnCallFooResp", bar.Bar_);
         e.Release();
     }
 
@@ -42,18 +42,26 @@ public class NetworkTest : MonoBehaviour
         m_TestStarted = true;
     }
 
+    private float m_TimePassed = 0;
     private void Update()
     {
         if (m_TestStarted)
         {
-            var builder = FlatBufferBuilder.InstanceDefault;
-            Foo.StartFoo(builder);
-            Foo.AddFoo(builder, 1121212121212121212L);
-            var foo = Foo.End(builder);
-            builder.Finish(foo.Value);
+            m_TimePassed += Time.deltaTime;
+            if (m_TimePassed > 0.2f)
+            {
+                m_TimePassed = 0;
 
-            Pinus.Request(Structs.FooBar.OnFoo.route, builder.DataBuffer);
-            builder.Clear();
+                var builder = FlatBufferBuilder.InstanceDefault;
+                Foo.StartFoo(builder);
+                Foo.AddFoo(builder, 1121212121212121212L);
+                var foo = Foo.End(builder);
+                builder.Finish(foo.Value);
+
+                Pinus.Request(Structs.FooBar.CallFoo.route, builder.DataBuffer);
+                builder.Clear();
+            }
+
         }
     }
 }

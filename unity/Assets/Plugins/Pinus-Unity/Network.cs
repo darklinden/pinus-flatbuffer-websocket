@@ -404,8 +404,6 @@ namespace PinusUnity
         public void SendMessage(int requestId, int routeCode, ByteBuffer msg)
         {
             UnityEngine.Profiling.Profiler.BeginSample("Pinus.Network.SendMessage");
-            Log.D("Pinus Network SendMessage", requestId, routeCode);
-
             var type = requestId > 0 ? MessageType.REQUEST : MessageType.NOTIFY;
             var dataLen = msg != null ? msg.Length - msg.Position : 0;
             var offset = Package.PKG_HEAD_BYTES;
@@ -424,6 +422,7 @@ namespace PinusUnity
 
             // encode package header
             Package.Encode(PackageType.Data, buffer, offset - Package.PKG_HEAD_BYTES);
+            buffer.Resize(offset);
             UnityEngine.Profiling.Profiler.EndSample();
 
             // send data
@@ -437,6 +436,7 @@ namespace PinusUnity
                 Log.E("Pinus Network Notify Error: Empty Route");
                 return;
             }
+            Log.D("Pinus Network SendMessage", "route", route, "requestId", requestId, "data length", msg.Length - msg.Position);
             var routeCode = m_RouteMap[route];
             SendMessage(requestId, routeCode, msg);
         }
@@ -450,12 +450,13 @@ namespace PinusUnity
             }
 
             var requestId = GenerateUniqueRequestId();
-            SendMessage(requestId, route, msg);
+            var routeCode = m_RouteMap[route];
+
+            SendMessage(requestId, routeCode, msg);
             if (cb != null)
             {
                 m_RequestCallbackMap.Add(requestId, cb);
             }
-            var routeCode = m_RouteMap[route];
             m_RequestRouteMap.Add(requestId, routeCode);
         }
 
@@ -467,7 +468,8 @@ namespace PinusUnity
                 return;
             }
 
-            SendMessage(0, route, data);
+            var routeCode = m_RouteMap[route];
+            SendMessage(0, routeCode, data);
         }
     }
 }

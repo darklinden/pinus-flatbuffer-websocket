@@ -7,8 +7,9 @@ const internal_1 = require("./proto/internal");
 class FooBar extends RouteBase_1.RouteBase {
     constructor() {
         super(...arguments);
-        this.OnFoo = Cmd_1.Cmd.create('connector.entryHandler.onFoo', internal_1.proto.Foo, internal_1.proto.Bar);
-        this.OnBar = Cmd_1.Cmd.create('connector.entryHandler.onBar', internal_1.proto.Bar, internal_1.proto.Foo);
+        this.CallFoo = Cmd_1.Cmd.create('connector.entryHandler.callFoo', internal_1.proto.Foo, internal_1.proto.Bar);
+        this.PushBar = Cmd_1.Cmd.create('connector.entryHandler.pushBar', null, internal_1.proto.Bar);
+        this.CallBar = Cmd_1.Cmd.create('connector.entryHandler.callBar', internal_1.proto.Bar, internal_1.proto.Foo);
     }
 }
 exports.FooBar = FooBar;

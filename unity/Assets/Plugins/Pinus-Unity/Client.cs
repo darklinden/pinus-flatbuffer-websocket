@@ -70,7 +70,6 @@ namespace PinusUnity
         private void OnMessage(object sender, WSEventArgs e)
         {
             m_NetworkHandle.OnRecv(e.Data);
-            e.Release();
         }
 
         private void OnError(object sender, WSEventArgs e)

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace XPool
 {
-    public partial class PooledList<T> : IEnumerable<T>, IList<T>, IRelease
+    public partial class XList<T> : IEnumerable<T>, IList<T>, IRelease
     {
         public class Pool
         {
@@ -14,25 +14,25 @@ namespace XPool
 
             ArrayPool<T> m_ArrayPool;
 
-            readonly Stack<PooledList<T>> m_Pool;
+            readonly Stack<XList<T>> m_Pool;
 
             public Pool()
             {
                 m_ArrayPool = ArrayPool<T>.Shared;
-                m_Pool = new Stack<PooledList<T>>();
+                m_Pool = new Stack<XList<T>>();
             }
 
             public Pool(ArrayPool<T> arrayPool)
             {
                 m_ArrayPool = arrayPool ?? ArrayPool<T>.Shared;
-                m_Pool = new Stack<PooledList<T>>();
+                m_Pool = new Stack<XList<T>>();
             }
 
             /// <summary>
             /// The array length is not always accurate.
             /// </summary>
             /// <exception cref="ArgumentOutOfRangeException"></exception>
-            public PooledList<T> Rent(int minimumCapacity = 0)
+            public XList<T> Rent(int minimumCapacity = 0)
             {
                 if (minimumCapacity < 0) minimumCapacity = 0;
 
@@ -42,7 +42,7 @@ namespace XPool
                     return m_Pool.Pop();
                 }
 
-                return new PooledList<T>(this, ArrayPool<T>.Shared, minimumCapacity);
+                return new XList<T>(this, ArrayPool<T>.Shared, minimumCapacity);
             }
 
             /// <summary>
@@ -50,7 +50,7 @@ namespace XPool
             /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
             /// </summary>
             /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(PooledList<T> list)
+            public void Return(XList<T> list)
             {
                 if (list == null) return;
                 list.Clear();
@@ -69,7 +69,7 @@ namespace XPool
             /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
             /// </summary>
             /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(ref PooledList<T> list)
+            public void Return(ref XList<T> list)
             {
                 Return(list);
                 list = null;
@@ -95,27 +95,27 @@ namespace XPool
             }
         }
 
-        public static PooledList<T> Create(int minimumCapacity = 0)
+        public static XList<T> Create(int minimumCapacity = 0)
         {
             return Pool.Shared.Rent(minimumCapacity);
         }
 
-        public static PooledList<T> CopyFrom(IList<T> list)
+        public static XList<T> CopyFrom(IList<T> list)
         {
             return Pool.Shared.Rent(list.Count).Copy(list);
         }
 
-        public static PooledList<T> CopyFrom(T one)
+        public static XList<T> CopyFrom(T one)
         {
             return Pool.Shared.Rent(1).Copy(one);
         }
 
-        public static void Release(ref PooledList<T> list)
+        public static void Release(ref XList<T> list)
         {
             Pool.Shared.Return(ref list);
         }
 
-        public static void Release(PooledList<T> list)
+        public static void Release(XList<T> list)
         {
             Pool.Shared.Return(list);
         }
@@ -158,7 +158,7 @@ namespace XPool
             }
         }
 
-        public PooledList(Pool listPool, ArrayPool<T> arrayPool, int minimumCapacity)
+        public XList(Pool listPool, ArrayPool<T> arrayPool, int minimumCapacity)
         {
             m_ListPool = listPool ?? Pool.Shared;
             m_ArrayPool = arrayPool ?? ArrayPool<T>.Shared;
@@ -232,7 +232,7 @@ namespace XPool
             InsertRange(m_Count, collection);
         }
 
-        public PooledList<T> Copy(T one)
+        public XList<T> Copy(T one)
         {
             ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, 1, m_ArrayPool);
             m_Array[0] = one;
@@ -240,7 +240,7 @@ namespace XPool
             return this;
         }
 
-        public PooledList<T> Copy(IList<T> list)
+        public XList<T> Copy(IList<T> list)
         {
             ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, list.Count, m_ArrayPool);
             for (int i = 0; i < list.Count; i++)
@@ -822,10 +822,10 @@ namespace XPool
         /// </summary>
         /// <param name="match"></param>
         /// <exception cref="ArgumentNullException"></exception>
-        public PooledList<T> FindAll(Predicate<T> match)
+        public XList<T> FindAll(Predicate<T> match)
         {
             if (match == null) return null;
-            PooledList<T> result = Pool.Shared.Rent();
+            XList<T> result = Pool.Shared.Rent();
             for (int i = 0; i < m_Count; i++)
             {
                 T item = m_Array[i];

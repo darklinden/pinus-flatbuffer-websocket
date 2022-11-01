@@ -155,7 +155,7 @@ namespace UnityWebSocket
 
         private void DoRelease()
         {
-            Log.D("PooledBuffer DoRelease");
+            // Log.D("PooledBuffer DoRelease");
             Clear();
             BufferPool.Return(this);
         }

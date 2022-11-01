@@ -90,6 +90,7 @@ namespace UnityWebSocket
             var evt = WSEventArgs.Create();
             evt.EventType = WSEventType.Open;
             OnOpen?.Invoke(this, evt);
+            evt.Release();
         }
 
         internal void HandleOnMessage(byte[] rawData)
@@ -100,6 +101,7 @@ namespace UnityWebSocket
             evt.Data = PooledBuffer.Create();
             evt.Data.Write(rawData, 0, rawData.Length, 0);
             OnMessage?.Invoke(this, evt);
+            evt.Release();
         }
 
         internal void HandleOnClose(ushort code, string reason)
@@ -110,6 +112,7 @@ namespace UnityWebSocket
             evt.CloseCode = code;
             evt.Message = reason;
             OnClose?.Invoke(this, evt);
+            evt.Release();
             WebSocketManager.Remove(instanceId);
         }
 
@@ -120,6 +123,7 @@ namespace UnityWebSocket
             evt.EventType = WSEventType.Error;
             evt.Message = msg;
             OnError?.Invoke(this, evt);
+            evt.Release();
         }
 
         internal static string GetErrorMessageFromCode(int errorCode)

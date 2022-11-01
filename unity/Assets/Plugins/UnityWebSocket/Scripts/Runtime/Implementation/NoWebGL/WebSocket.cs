@@ -329,6 +329,7 @@ namespace UnityWebSocket
                     default:
                         break;
                 }
+                if (e != null) e.Release();
             }
         }
     }

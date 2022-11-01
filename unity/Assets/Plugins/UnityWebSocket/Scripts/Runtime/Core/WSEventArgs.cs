@@ -27,8 +27,13 @@ namespace UnityWebSocket
 
             public WSEventArgs Rent()
             {
-                if (m_Pool.Count != 0) return m_Pool.Pop();
+                if (m_Pool.Count != 0)
+                {
+                    Log.D("WSEventArgs Pop", m_Pool.Count);
+                    return m_Pool.Pop();
+                }
 
+                Log.D("WSEventArgs New");
                 return new WSEventArgs();
             }
 
@@ -37,6 +42,7 @@ namespace UnityWebSocket
                 if (buffer == null) return;
                 if (m_Pool.Count < kMaxBucketSize)
                 {
+                    Log.D("WSEventArgs Push", m_Pool.Count);
                     m_Pool.Push(buffer);
                 }
                 else

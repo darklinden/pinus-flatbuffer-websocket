@@ -39,12 +39,12 @@ namespace XPool
 
                 if (pool.Count != 0)
                 {
-                    Log.D("ArrayPool.Rent Use Pool", pool.Count);
+                    // Log.D("ArrayPool.Rent Use Pool", pool.Count);
                     return pool.Pop();
                 }
             }
 
-            Log.D("ArrayPool.Rent Alloc");
+            // Log.D("ArrayPool.Rent Alloc");
             return new T[size];
         }
 
