@@ -40,14 +40,14 @@ namespace PinusUnity
             return len;
         }
 
-        public static int EncodeMessageFlag(MessageType type, bool compressRoute, PooledBuffer buffer, int offset)
+        public static int EncodeMessageFlag(MessageType type, bool compressRoute, XBuffer buffer, int offset)
         {
             var typeValue = (int)type;
             buffer.Write((byte)((typeValue << 1) | (compressRoute ? 1 : 0)), offset);
             return offset + MSG_FLAG_BYTES;
         }
 
-        public static int EncodeMessageId(int id, PooledBuffer buffer, int offset)
+        public static int EncodeMessageId(int id, XBuffer buffer, int offset)
         {
             do
             {
@@ -66,7 +66,7 @@ namespace PinusUnity
             return offset;
         }
 
-        public static int EncodeMessageRoute(int route, PooledBuffer buffer, int offset)
+        public static int EncodeMessageRoute(int route, XBuffer buffer, int offset)
         {
             if (route > MSG_ROUTE_CODE_MAX)
             {
@@ -77,7 +77,7 @@ namespace PinusUnity
             return offset;
         }
 
-        public static int EncodeMessageRoute(string route, PooledBuffer buffer, int offset)
+        public static int EncodeMessageRoute(string route, XBuffer buffer, int offset)
         {
             buffer.Write((byte)(route.Length & 0xff), offset++);
             buffer.Write(route, offset);
@@ -110,7 +110,7 @@ namespace PinusUnity
             int id,
             MessageType type,
             int route,
-            PooledBuffer buffer,
+            XBuffer buffer,
             ref int offset)
         {
             // caculate message max length
@@ -146,7 +146,7 @@ namespace PinusUnity
             int id,
             MessageType type,
             string route,
-            PooledBuffer buffer,
+            XBuffer buffer,
             ref int offset)
         {
             // caculate message max length

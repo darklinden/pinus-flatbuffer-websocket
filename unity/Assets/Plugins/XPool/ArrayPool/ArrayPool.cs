@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Collections.Generic;
+using UnityEngine.Profiling;
 
 namespace XPool
 {
@@ -35,7 +36,14 @@ namespace XPool
 
             if (poolIndex != -1)
             {
-                var pool = m_Pool[poolIndex] ?? (m_Pool[poolIndex] = new Stack<T[]>());
+                if (m_Pool[poolIndex] == null)
+                {
+                    Profiler.BeginSample("ArrayPool.Rent Alloc Stack");
+                    m_Pool[poolIndex] = new Stack<T[]>();
+                    Profiler.EndSample();
+                }
+
+                Stack<T[]> pool = m_Pool[poolIndex];
 
                 if (pool.Count != 0)
                 {
@@ -45,7 +53,10 @@ namespace XPool
             }
 
             // Log.D("ArrayPool.Rent Alloc");
-            return new T[size];
+            Profiler.BeginSample("ArrayPool.Rent Alloc");
+            var allocArr = new T[size];
+            Profiler.EndSample();
+            return allocArr;
         }
 
         /// <summary>
@@ -76,7 +87,14 @@ namespace XPool
                 return;
             }
 
-            var pool = m_Pool[poolIndex] ?? (m_Pool[poolIndex] = new Stack<T[]>());
+            if (m_Pool[poolIndex] == null)
+            {
+                Profiler.BeginSample("ArrayPool.Return Alloc Stack");
+                m_Pool[poolIndex] = new Stack<T[]>();
+                Profiler.EndSample();
+            }
+
+            Stack<T[]> pool = m_Pool[poolIndex];
 
             if (clearArray)
             {

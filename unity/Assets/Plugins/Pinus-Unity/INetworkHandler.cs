@@ -7,7 +7,7 @@ namespace PinusUnity
     {
         public void ConnectTimeout();
         public void OnOpen();
-        public void OnRecv(PooledBuffer data);
+        public void OnRecv(XPool.XBuffer data);
         public void OnError(string err);
         public void OnClose();
     }

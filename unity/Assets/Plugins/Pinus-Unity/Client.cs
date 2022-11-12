@@ -105,7 +105,7 @@ namespace PinusUnity
             }
         }
 
-        public void SendBuffer(PooledBuffer buffer)
+        public void SendBuffer(XPool.XBuffer buffer)
         {
             if (m_Ws != null)
             {

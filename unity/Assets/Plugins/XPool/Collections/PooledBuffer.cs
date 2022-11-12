@@ -2,36 +2,40 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using XPool;
+using UnityEngine.Profiling;
 
-namespace UnityWebSocket
+namespace XPool
 {
-    public partial class PooledBuffer : IRelease
+    public class XBuffer : IDisposable
     {
         public class Pool
         {
             const int kMaxBucketSize = 64 * 10;
 
-            readonly Stack<PooledBuffer> m_Pool;
+            readonly Stack<XBuffer> m_Pool;
 
             public Pool()
             {
-                m_Pool = new Stack<PooledBuffer>();
+                m_Pool = new Stack<XBuffer>();
             }
 
             /// <summary>
             /// The array length is not always accurate.
             /// </summary>
             /// <exception cref="ArgumentOutOfRangeException"></exception>
-            public PooledBuffer Rent()
+            public XBuffer Rent()
             {
                 if (m_Pool.Count != 0)
                 {
-                    // Log.D("PooledList Rent from pool");
+                    // Log.D("PooledBuffer Rent from pool");
                     return m_Pool.Pop();
                 }
 
-                return new PooledBuffer();
+                // Log.D("PooledBuffer Rent new");
+                Profiler.BeginSample("PooledBuffer.Rent Alloc");
+                var allocBuffer = new XBuffer();
+                Profiler.EndSample();
+                return allocBuffer;
             }
 
             /// <summary>
@@ -39,7 +43,7 @@ namespace UnityWebSocket
             /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
             /// </summary>
             /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(PooledBuffer buffer)
+            public void Return(XBuffer buffer)
             {
                 if (buffer == null) return;
                 buffer.Clear();
@@ -49,7 +53,7 @@ namespace UnityWebSocket
                 }
                 else
                 {
-                    Log.E("PooledList Pool is full");
+                    Log.E("PooledBuffer Pool is full");
                 }
             }
 
@@ -58,15 +62,15 @@ namespace UnityWebSocket
             /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
             /// </summary>
             /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(ref PooledBuffer buffer)
+            public void Return(ref XBuffer buffer)
             {
                 Return(buffer);
                 buffer = null;
             }
         }
 
-        public static readonly ArrayPool<byte> BytesPool = new ArrayPool<byte>();
-        public static readonly Pool BufferPool = new Pool();
+        private static readonly ArrayPool<byte> BytesPool = new ArrayPool<byte>();
+        private static readonly Pool BufferPool = new Pool();
 
         private byte[] m_bytes;
         private int m_Count;
@@ -75,10 +79,7 @@ namespace UnityWebSocket
         public int Capacity => m_bytes.Length;
         public byte[] Bytes => m_bytes;
 
-        int RetainCount { get; set; }
-        int IRelease.RetainCount { get => RetainCount; set => RetainCount = value; }
-
-        public PooledBuffer()
+        public XBuffer()
         {
             m_bytes = null;
             m_Count = 0;
@@ -147,26 +148,23 @@ namespace UnityWebSocket
 
         public void Clear()
         {
-            BytesPool.Return(m_bytes, !RuntimeHelpers.IsWellKnownNoReferenceContainsType<byte>());
+            BytesPool.Return(ref m_bytes, !RuntimeHelpers.IsWellKnownNoReferenceContainsType<byte>());
 
             m_bytes = null;
             m_Count = 0;
         }
 
-        private void DoRelease()
+        public void Dispose()
         {
-            // Log.D("PooledBuffer DoRelease");
+            Log.D("PooledBuffer Dispose");
             Clear();
             BufferPool.Return(this);
         }
 
-        public static PooledBuffer Create()
+        public static XBuffer Get()
         {
             var buffer = BufferPool.Rent();
-            buffer.RetainCount = 0;
             return buffer;
         }
-
-        void IRelease.DoRelease() => DoRelease();
     }
 }

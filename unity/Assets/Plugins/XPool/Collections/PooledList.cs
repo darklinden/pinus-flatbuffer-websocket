@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.Profiling;
 
 namespace XPool
 {
-    public partial class XList<T> : IEnumerable<T>, IList<T>, IRelease
+    public partial class XList<T> : IEnumerable<T>, IList<T>, IDisposable
     {
         public class Pool
         {
@@ -42,7 +43,10 @@ namespace XPool
                     return m_Pool.Pop();
                 }
 
-                return new XList<T>(this, ArrayPool<T>.Shared, minimumCapacity);
+                Profiler.BeginSample("PooledList.Rent Alloc");
+                var allocList = new XList<T>(this, ArrayPool<T>.Shared, minimumCapacity);
+                Profiler.EndSample();
+                return allocList;
             }
 
             /// <summary>
@@ -95,13 +99,14 @@ namespace XPool
             }
         }
 
-        public static XList<T> Create(int minimumCapacity = 0)
+        public static XList<T> Get(int minimumCapacity = 0)
         {
             return Pool.Shared.Rent(minimumCapacity);
         }
 
         public static XList<T> CopyFrom(IList<T> list)
         {
+            if (list == null) return Pool.Shared.Rent();
             return Pool.Shared.Rent(list.Count).Copy(list);
         }
 
@@ -902,16 +907,10 @@ namespace XPool
             return m_Array[m_Count - 1];
         }
 
-
-        int RetainCount { get; set; }
-        int IRelease.RetainCount { get => RetainCount; set => RetainCount = value; }
-
-        void DoRelease()
+        public void Dispose()
         {
             Clear();
             m_ListPool.Return(this);
         }
-
-        void IRelease.DoRelease() => DoRelease();
     }
 }

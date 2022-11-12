@@ -24,14 +24,14 @@ public class NetworkTest : MonoBehaviour
     {
         var bar = Bar.GetRoot(e);
         Log.D("OnPushBar", bar.Bar_);
-        e.Release();
+        e.Dispose();
     }
 
     private void OnCallFooResp(ByteBuffer e)
     {
         var bar = Bar.GetRoot(e);
         Log.D("OnCallFooResp", bar.Bar_);
-        e.Release();
+        e.Dispose();
     }
 
     private bool m_TestStarted = false;
@@ -61,7 +61,6 @@ public class NetworkTest : MonoBehaviour
                 Pinus.Request(Structs.FooBar.CallFoo.route, builder.DataBuffer);
                 builder.Clear();
             }
-
         }
     }
 }

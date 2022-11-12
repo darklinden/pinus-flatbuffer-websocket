@@ -8,7 +8,7 @@ namespace UnityWebSocket
 
         void CloseAsync();
 
-        void SendAsync(PooledBuffer data);
+        void SendAsync(XPool.XBuffer data);
 
         string Address { get; }
 

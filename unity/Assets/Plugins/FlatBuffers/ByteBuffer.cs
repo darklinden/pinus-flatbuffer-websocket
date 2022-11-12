@@ -25,7 +25,7 @@ using UnityWebSocket;
 
 namespace Google.FlatBuffers
 {
-    public class ByteBuffer : IRelease
+    public class ByteBuffer : IDisposable
     {
         public class Pool
         {
@@ -85,12 +85,15 @@ namespace Google.FlatBuffers
 
         internal static readonly Pool BufferPool = new Pool();
 
-        internal static ByteBuffer Create(int initialSize)
+        internal static ByteBuffer Get()
         {
             var buffer = BufferPool.Rent();
-            buffer.RetainCount = 0;
-            buffer._buffer.Resize(initialSize);
             return buffer;
+        }
+
+        public void Resize(int initialSize)
+        {
+            _buffer.Resize(initialSize);
         }
 
         private ByteArrayAllocator _buffer;
@@ -130,9 +133,7 @@ namespace Google.FlatBuffers
 
         public int Length { get { return _buffer.Length; } }
 
-        int RetainCount { get; set; }
-        int IRelease.RetainCount { get => RetainCount; set => RetainCount = value; }
-        public void DoRelease()
+        public void Dispose()
         {
             Clear();
             BufferPool.Return(this);
@@ -169,7 +170,7 @@ namespace Google.FlatBuffers
             return ToArray<byte>(pos, len);
         }
 
-        public void CopyTo(PooledBuffer dst, int dstPos)
+        public void CopyTo(XPool.XBuffer dst, int dstPos)
         {
             dst.Write(_buffer.Buffer, Position, Length - Position, dstPos);
         }
@@ -178,7 +179,7 @@ namespace Google.FlatBuffers
         /// A lookup of type sizes. Used instead of Marshal.SizeOf() which has additional
         /// overhead, but also is compatible with generic functions for simplified code.
         /// </summary>
-        private static Dictionary<Type, int> genericSizes = new Dictionary<Type, int>()
+        private static System.Collections.Generic.Dictionary<Type, int> genericSizes = new System.Collections.Generic.Dictionary<Type, int>()
         {
             { typeof(bool),     sizeof(bool) },
             { typeof(float),    sizeof(float) },
@@ -258,7 +259,7 @@ namespace Google.FlatBuffers
         {
             AssertOffsetAndLength(pos, len);
             T[] arr = new T[len];
-            Buffer.BlockCopy(_buffer.Buffer, pos, arr, 0, ArraySize(arr));
+            System.Buffer.BlockCopy(_buffer.Buffer, pos, arr, 0, ArraySize(arr));
             return arr;
         }
 #endif
@@ -924,7 +925,7 @@ namespace Google.FlatBuffers
                 MemoryMarshal.Cast<T, byte>(x).CopyTo(_buffer.Span.Slice(offset, numBytes));
 #else
                 var srcOffset = ByteBuffer.SizeOf<T>() * x.Offset;
-                Buffer.BlockCopy(x.Array, srcOffset, _buffer.Buffer, offset, numBytes);
+                System.Buffer.BlockCopy(x.Array, srcOffset, _buffer.Buffer, offset, numBytes);
 #endif
             }
             else

@@ -119,19 +119,19 @@ namespace UnityWebSocket
         public struct SendTaskStruct
         {
             public WebSocketMessageType Type { get; set; }
-            public PooledBuffer Buffer { get; set; }
+            public XPool.XBuffer Buffer { get; set; }
         }
 
         private object sendQueueLock = new object();
-        private Queue<SendTaskStruct> sendQueue = new Queue<SendTaskStruct>();
+        private System.Collections.Generic.Queue<SendTaskStruct> sendQueue = new System.Collections.Generic.Queue<SendTaskStruct>();
         private bool isSendTaskRunning;
 
-        public void SendAsync(PooledBuffer data)
+        public void SendAsync(XPool.XBuffer data)
         {
             SendBufferAsync(data);
         }
 
-        private void SendBufferAsync(PooledBuffer buffer, WebSocketMessageType type = WebSocketMessageType.Binary)
+        private void SendBufferAsync(XPool.XBuffer buffer, WebSocketMessageType type = WebSocketMessageType.Binary)
         {
             if (isSendTaskRunning)
             {
@@ -178,7 +178,7 @@ namespace UnityWebSocket
                     {
                         Log.D("Send, type:", st.Type, "len:", st.Buffer.Length, "size:", st.Buffer.Bytes, "queue left:", sendQueue.Count);
                         await socket.SendAsync(new ArraySegment<byte>(st.Buffer.Bytes, 0, st.Buffer.Length), st.Type, true, CancellationToken.None);
-                        st.Buffer.Release();
+                        st.Buffer.Dispose();
                         st.Buffer = null;
                     }
                 }
@@ -206,12 +206,12 @@ namespace UnityWebSocket
 
             try
             {
-                PooledBuffer buffer = null;
+                XPool.XBuffer buffer = null;
                 int index = 0;
                 while (!isClosed)
                 {
                     var result = await socket.ReceiveAsync(segment, CancellationToken.None);
-                    if (buffer == null) buffer = PooledBuffer.Create();
+                    if (buffer == null) buffer = XPool.XBuffer.Get();
                     buffer.Write(segment.Array, 0, result.Count, index);
                     if (!result.EndOfMessage)
                     {
@@ -259,15 +259,15 @@ namespace UnityWebSocket
         private void HandleOpen()
         {
             Log.D("OnOpen");
-            var evt = WSEventArgs.Create();
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Open;
             HandleEventSync(evt);
         }
 
-        private void HandleMessage(PooledBuffer buffer)
+        private void HandleMessage(XPool.XBuffer buffer)
         {
             Log.D("OnMessage, size:", buffer.Bytes);
-            var evt = WSEventArgs.Create();
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Message;
             evt.Data = buffer;
             HandleEventSync(evt);
@@ -276,7 +276,7 @@ namespace UnityWebSocket
         private void HandleClose(ushort code, string reason)
         {
             Log.D("OnClose, code:", code, "reason:", reason);
-            var evt = WSEventArgs.Create();
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Close;
             evt.CloseCode = code;
             evt.Message = reason;
@@ -286,13 +286,13 @@ namespace UnityWebSocket
         private void HandleError(Exception exception)
         {
             Log.E("OnError, error:", exception.Message);
-            var evt = WSEventArgs.Create();
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Error;
             evt.Message = exception.Message;
             HandleEventSync(evt);
         }
 
-        private readonly Queue<WSEventArgs> eventQueue = new Queue<WSEventArgs>();
+        private readonly System.Collections.Generic.Queue<WSEventArgs> eventQueue = new System.Collections.Generic.Queue<WSEventArgs>();
         private readonly object eventQueueLock = new object();
         private void HandleEventSync(WSEventArgs eventArgs)
         {
@@ -329,7 +329,7 @@ namespace UnityWebSocket
                     default:
                         break;
                 }
-                if (e != null) e.Release();
+                if (e != null) e.Dispose();
             }
         }
     }

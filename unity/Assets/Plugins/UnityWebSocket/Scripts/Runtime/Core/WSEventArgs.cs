@@ -12,7 +12,7 @@ namespace UnityWebSocket
         Message,
     }
 
-    public class WSEventArgs : EventArgs, IRelease
+    public class WSEventArgs : EventArgs, IDisposable
     {
         public class Pool
         {
@@ -75,29 +75,23 @@ namespace UnityWebSocket
 
         public string CloseReason { get => Message; }
         public string Message { get; internal set; }
-        public PooledBuffer Data { get; internal set; }
+        public XPool.XBuffer Data { get; internal set; }
 
-        int RetainCount { get; set; }
-        int IRelease.RetainCount { get => RetainCount; set => RetainCount = value; }
-
-        public static WSEventArgs Create()
+        public static WSEventArgs Get()
         {
             var args = Shared.Rent();
-            args.RetainCount = 0;
             return args;
         }
 
-        private void DoRelease()
+        public void Dispose()
         {
-            Log.D("WSEventArgs DoRelease");
+            Log.D("WSEventArgs Dispose");
             if (Data != null)
             {
-                Data.Release();
+                Data.Dispose();
                 Data = null;
             }
             Shared.Return(this);
         }
-
-        void IRelease.DoRelease() => DoRelease();
     }
 }

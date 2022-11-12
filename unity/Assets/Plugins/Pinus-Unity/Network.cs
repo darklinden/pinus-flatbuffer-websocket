@@ -17,7 +17,7 @@ namespace PinusUnity
 
         // --- instances begin ---
 
-        protected static Dictionary<string, Network> _instances = new Dictionary<string, Network>();
+        protected static System.Collections.Generic.Dictionary<string, Network> _instances = new System.Collections.Generic.Dictionary<string, Network>();
 
         public static void Clear(string key)
         {
@@ -79,12 +79,12 @@ namespace PinusUnity
         }
 
         // Map from request id to route
-        protected Dictionary<int, int> m_RequestRouteMap = new Dictionary<int, int>(64);
+        protected System.Collections.Generic.Dictionary<int, int> m_RequestRouteMap = new System.Collections.Generic.Dictionary<int, int>(64);
         // callback from request id
-        protected Dictionary<int, Action<ByteBuffer>> m_RequestCallbackMap = new Dictionary<int, Action<ByteBuffer>>();
+        protected System.Collections.Generic.Dictionary<int, Action<ByteBuffer>> m_RequestCallbackMap = new System.Collections.Generic.Dictionary<int, Action<ByteBuffer>>();
 
-        protected Dictionary<string, int> m_RouteMap = null;
-        protected Dictionary<int, string> m_RouteMapBack = null;
+        protected System.Collections.Generic.Dictionary<string, int> m_RouteMap = null;
+        protected System.Collections.Generic.Dictionary<int, string> m_RouteMapBack = null;
 
         protected Network(string key)
         {
@@ -95,11 +95,11 @@ namespace PinusUnity
 
         // --- Socket begin ---
         private const string HANDSHAKEBUFFER = "{\"sys\":{\"type\":\"ws\",\"version\":\"0.0.1\",\"rsa\":{}},\"user\":{}}";
-        private static PooledBuffer HandshakeBuffer
+        private static XPool.XBuffer HandshakeBuffer
         {
             get
             {
-                var buffer = PooledBuffer.Create();
+                var buffer = XPool.XBuffer.Get();
                 buffer.Write(HANDSHAKEBUFFER, Package.PKG_HEAD_BYTES);
                 Package.Encode(PackageType.Handshake, buffer, buffer.Length - Package.PKG_HEAD_BYTES);
                 return buffer;
@@ -120,7 +120,7 @@ namespace PinusUnity
             Client.SendBuffer(HandshakeBuffer);
         }
 
-        public void OnRecv(PooledBuffer data)
+        public void OnRecv(XPool.XBuffer data)
         {
             ProcessPackage(data);
 
@@ -211,8 +211,8 @@ namespace PinusUnity
 
             if (dict != null && dict.IsObject)
             {
-                m_RouteMap = new Dictionary<string, int>();
-                m_RouteMapBack = new Dictionary<int, string>();
+                m_RouteMap = new System.Collections.Generic.Dictionary<string, int>();
+                m_RouteMapBack = new System.Collections.Generic.Dictionary<int, string>();
                 foreach (var key in (dict as JSONObject).Keys)
                 {
                     var value = dict[key].AsInt;
@@ -312,7 +312,8 @@ namespace PinusUnity
             }
 
             Log.D("Pinus Recv", routeStr, "Data Length", bodyLength);
-            var bb = ByteBuffer.Create(bytes.Length);
+            var bb = ByteBuffer.Get();
+            bb.Resize(bytes.Length);
             bb.CopyBytes(bytes, bodyOffset, bodyLength);
 
             if (id != 0)
@@ -339,7 +340,7 @@ namespace PinusUnity
             Client.Close();
         }
 
-        internal void ProcessPackage(PooledBuffer buffer)
+        internal void ProcessPackage(XPool.XBuffer buffer)
         {
             int offset = 0;
             int length = 0;
@@ -408,7 +409,7 @@ namespace PinusUnity
             var dataLen = msg != null ? msg.Length - msg.Position : 0;
             var offset = Package.PKG_HEAD_BYTES;
 
-            var buffer = PooledBuffer.Create();
+            var buffer = XPool.XBuffer.Get();
             buffer.Resize(dataLen + 16);
             // encode message header
             Message.Encode(requestId, type, routeCode, buffer, ref offset);

@@ -90,7 +90,8 @@ namespace Google.FlatBuffers
                 throw new ArgumentOutOfRangeException("initialSize",
                     initialSize, "Must be greater than zero");
             _space = initialSize;
-            _bb = ByteBuffer.Create(initialSize);
+            _bb = ByteBuffer.Get();
+            _bb.Resize(initialSize);
         }
 
         /// <summary>
