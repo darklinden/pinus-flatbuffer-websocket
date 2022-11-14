@@ -557,7 +557,7 @@ namespace SimpleJSON
                             break;
                         }
                         if (stack.Count == 0)
-                            throw new Exception("JSON Parse: Too many closing brackets");
+                            Log.E("JSON Parse: Too many closing brackets");
 
                         stack.Pop();
                         if (Token.Length > 0 || TokenIsQuoted)
@@ -668,7 +668,7 @@ namespace SimpleJSON
             }
             if (QuoteMode)
             {
-                throw new Exception("JSON Parse: Quotation marks seems to be messed up.");
+                Log.E("JSON Parse: Quotation marks seems to be messed up.");
             }
             if (ctx == null)
                 return ParseElement(Token.ToString(), TokenIsQuoted);

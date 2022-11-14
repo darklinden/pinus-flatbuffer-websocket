@@ -28,3 +28,5 @@
 * Configs 读取并存储配置信息
   * 配置文件多层存储
   * Configs Instances 缓存数据文件二进制和 id -> index Dictionary 以方便从id快速查找数据
+* unity 版本
+  <unityhub://2021.3.13f1/9e7d58001ecf>

@@ -49,6 +49,13 @@ namespace XPool
             return AnyPool<XDictionary<TKey, TValue>>.Get();
         }
 
+        public static XDictionary<TKey, TValue> Get(int capacity)
+        {
+            var dict = AnyPool<XDictionary<TKey, TValue>>.Get();
+            dict.EnsureCapacity(capacity);
+            return dict;
+        }
+
         private struct Entry
         {
             public int hashCode;    // Lower 31 bits of hash code, -1 if unused
@@ -1312,7 +1319,7 @@ namespace XPool
             _size = newSize;
             _freeCount = 0;
             s_bucketPool.Return(oldBuckets);
-            s_entryPool.Return(entries, clearArray: _clearKeyOnFree || _clearValueOnFree);
+            s_entryPool.Return(oldEntries, clearArray: _clearKeyOnFree || _clearValueOnFree);
         }
 
         bool ICollection.IsSynchronized => false;

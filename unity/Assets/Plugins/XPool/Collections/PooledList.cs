@@ -25,6 +25,12 @@ namespace XPool
             return l;
         }
 
+        public XList()
+        {
+            m_Array = null;
+            m_Count = 0;
+        }
+
         public void ResetCapacity(int minimumCapacity)
         {
             ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, minimumCapacity, ArrayPool<T>.Shared);
@@ -121,7 +127,7 @@ namespace XPool
         public void Add(T item)
         {
             // If the array is full, double the size of the array.
-            if (m_Count == m_Array.Length)
+            if (m_Array == null || m_Count == m_Array.Length)
             {
                 ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Count * 2, ArrayPool<T>.Shared);
             }
@@ -185,7 +191,7 @@ namespace XPool
         public void Insert(int index, T item)
         {
             var max = Math.Max(m_Count + 1, index + 1);
-            if (max >= m_Array.Length)
+            if (m_Array == null || max >= m_Array.Length)
             {
                 ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Array.Length * 2, ArrayPool<T>.Shared);
             }
@@ -358,6 +364,7 @@ namespace XPool
         /// <returns></returns>
         public int IndexOf(T item)
         {
+            if (m_Array == null) return -1;
             return System.Array.IndexOf(m_Array, item, 0, m_Count);
         }
 
@@ -370,6 +377,7 @@ namespace XPool
         public int IndexOf(T item, int index)
         {
             if (index > m_Count) return -1;
+            if (m_Array == null) return -1;
             return System.Array.IndexOf(m_Array, item, index, m_Count - index);
         }
 
@@ -384,6 +392,7 @@ namespace XPool
         {
             if (index > m_Count) return -1;
             if ((count < 0) || index > (m_Count - count)) return -1;
+            if (m_Array == null) return -1;
             return System.Array.IndexOf(m_Array, item, index, count);
         }
 
@@ -399,6 +408,7 @@ namespace XPool
         public int LastIndexOf(T item)
         {
             if (m_Count == 0) return -1;
+            if (m_Array == null) return -1;
             return LastIndexOf(item, m_Count - 1, m_Count);
         }
 
@@ -411,6 +421,7 @@ namespace XPool
         public int LastIndexOf(T item, int index)
         {
             if (index >= m_Count) return -1;
+            if (m_Array == null) return -1;
             return LastIndexOf(item, index, index + 1);
         }
 
@@ -425,6 +436,7 @@ namespace XPool
         {
             if (m_Count == 0) return -1;
             if (index >= m_Count) return -1;
+            if (m_Array == null) return -1;
             return System.Array.LastIndexOf(m_Array, item, index, count);
         }
 
@@ -466,6 +478,7 @@ namespace XPool
             if (index < 0) index = 0;
             if (count < 0) count = 0;
             if (m_Count < index + count) count = m_Count - index;
+            if (m_Array == null) return -1;
             return System.Array.BinarySearch(m_Array, index, count, item, comparer);
         }
 
@@ -490,6 +503,7 @@ namespace XPool
         /// <exception cref="ArgumentException"></exception>
         public void CopyTo(T[] array, int arrayIndex)
         {
+            if (m_Array == null) return;
             System.Array.Copy(m_Array, 0, array, arrayIndex, m_Count);
         }
 
@@ -504,6 +518,7 @@ namespace XPool
         public void CopyTo(int index, T[] array, int arrayIndex, int count)
         {
             if (m_Count < index + count) count = m_Count - index;
+            if (m_Array == null) return;
             System.Array.Copy(m_Array, index, array, arrayIndex, count);
         }
 
@@ -531,6 +546,7 @@ namespace XPool
             if (index < 0) index = 0;
             if (count < 0) count = 0;
             if ((m_Count - index) < count) count = m_Count - index;
+            if (m_Array == null) return;
             System.Array.Reverse(m_Array, index, count);
         }
 
@@ -568,6 +584,7 @@ namespace XPool
             if (index < 0) index = 0;
             if (count < 0) count = 0;
             if ((m_Count - index) < count) count = m_Count - index;
+            if (m_Array == null) return;
             System.Array.Sort(m_Array, index, count, comparer);
         }
 
@@ -611,6 +628,7 @@ namespace XPool
             if (startIndex > m_Count) startIndex = m_Count;
             if (count < 0) count = 0;
             if (m_Count < startIndex + count) count = m_Count - startIndex;
+            if (m_Array == null) return -1;
             if (match == null) return -1;
 
             int endIndex = startIndex + count;
@@ -668,6 +686,7 @@ namespace XPool
 
             int endIndex = startIndex - count;
             if (endIndex < 0) return -1;
+            if (m_Array == null) return -1;
             for (int i = startIndex; i > endIndex; i--)
             {
                 if (match(m_Array[i]))
@@ -697,6 +716,7 @@ namespace XPool
         /// <exception cref="ArgumentNullException"></exception>
         public T Find(Predicate<T> match)
         {
+            if (m_Array == null) return default(T);
             if (match == null) return default(T);
             for (int i = 0; i < m_Count; i++)
             {
@@ -716,6 +736,7 @@ namespace XPool
         /// <exception cref="ArgumentNullException"></exception>
         public T FindLast(Predicate<T> match)
         {
+            if (m_Array == null) return default(T);
             if (match == null) return default(T);
             for (int i = m_Count - 1; i >= 0; i--)
             {
@@ -735,6 +756,7 @@ namespace XPool
         /// <exception cref="ArgumentNullException"></exception>
         public XList<T> FindAll(Predicate<T> match)
         {
+            if (m_Array == null) return null;
             if (match == null) return null;
             XList<T> result = Get();
             for (int i = 0; i < m_Count; i++)
@@ -755,6 +777,7 @@ namespace XPool
         /// <exception cref="ArgumentNullException"></exception>
         public bool TrueForAll(Predicate<T> match)
         {
+            if (m_Array == null) return false;
             if (match == null) return false;
             for (int i = 0; i < m_Count; i++)
             {
