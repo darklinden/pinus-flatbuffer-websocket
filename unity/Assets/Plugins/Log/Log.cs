@@ -3,7 +3,7 @@
 #define LOG_TO_CONSOLE
 #define LOG_WITH_TIME
 
-#define CONDITIONAL_CLOSE_LOG
+// #define CONDITIONAL_CLOSE_LOG
 
 
 using System;

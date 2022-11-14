@@ -1,135 +1,37 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.Profiling;
 
 namespace XPool
 {
     public partial class XList<T> : IEnumerable<T>, IList<T>, IDisposable
     {
-        public class Pool
+        public static XList<T> Get()
         {
-            const int kMaxBucketSize = 64 * 10;
-
-            public static readonly Pool Shared = new Pool();
-
-            ArrayPool<T> m_ArrayPool;
-
-            readonly Stack<XList<T>> m_Pool;
-
-            public Pool()
-            {
-                m_ArrayPool = ArrayPool<T>.Shared;
-                m_Pool = new Stack<XList<T>>();
-            }
-
-            public Pool(ArrayPool<T> arrayPool)
-            {
-                m_ArrayPool = arrayPool ?? ArrayPool<T>.Shared;
-                m_Pool = new Stack<XList<T>>();
-            }
-
-            /// <summary>
-            /// The array length is not always accurate.
-            /// </summary>
-            /// <exception cref="ArgumentOutOfRangeException"></exception>
-            public XList<T> Rent(int minimumCapacity = 0)
-            {
-                if (minimumCapacity < 0) minimumCapacity = 0;
-
-                if (m_Pool.Count != 0)
-                {
-                    // Log.D("PooledList Rent from pool");
-                    return m_Pool.Pop();
-                }
-
-                Profiler.BeginSample("PooledList.Rent Alloc");
-                var allocList = new XList<T>(this, ArrayPool<T>.Shared, minimumCapacity);
-                Profiler.EndSample();
-                return allocList;
-            }
-
-            /// <summary>
-            /// <para> Return the array to the pool. </para>
-            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
-            /// </summary>
-            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(XList<T> list)
-            {
-                if (list == null) return;
-                list.Clear();
-                if (m_Pool.Count < kMaxBucketSize)
-                {
-                    m_Pool.Push(list);
-                }
-                else
-                {
-                    Log.E("PooledList Pool is full");
-                }
-            }
-
-            /// <summary>
-            /// <para> Return the array to the pool and set array reference to null. </para>
-            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
-            /// </summary>
-            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(ref XList<T> list)
-            {
-                Return(list);
-                list = null;
-            }
-
-            public void ReleaseInstances(int keep)
-            {
-                if (keep < 0) keep = 0;
-                if (keep > kMaxBucketSize) keep = kMaxBucketSize;
-
-                if (keep > 0)
-                {
-                    // Release instances from each buckets.
-                    for (int k = m_Pool.Count - keep; k > 0; k--)
-                    {
-                        m_Pool.Pop();
-                    }
-                }
-                else
-                {
-                    m_Pool.Clear();
-                }
-            }
+            return AnyPool<XList<T>>.Get();
         }
 
-        public static XList<T> Get(int minimumCapacity = 0)
+        public static XList<T> Get(int minimumCapacity)
         {
-            return Pool.Shared.Rent(minimumCapacity);
+            var list = AnyPool<XList<T>>.Get();
+            list.ResetCapacity(minimumCapacity);
+            return list;
         }
 
         public static XList<T> CopyFrom(IList<T> list)
         {
-            if (list == null) return Pool.Shared.Rent();
-            return Pool.Shared.Rent(list.Count).Copy(list);
+            var l = Get();
+            if (list != null) l.Copy(list);
+            return l;
         }
 
-        public static XList<T> CopyFrom(T one)
+        public void ResetCapacity(int minimumCapacity)
         {
-            return Pool.Shared.Rent(1).Copy(one);
-        }
-
-        public static void Release(ref XList<T> list)
-        {
-            Pool.Shared.Return(ref list);
-        }
-
-        public static void Release(XList<T> list)
-        {
-            Pool.Shared.Return(list);
+            ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, minimumCapacity, ArrayPool<T>.Shared);
         }
 
         private T[] m_Array;
         private int m_Count;
-        private ArrayPool<T> m_ArrayPool;
-        private Pool m_ListPool;
-
         public int Count => m_Count;
 
         /// <summary>
@@ -149,26 +51,26 @@ namespace XPool
         {
             get
             {
-                Log.AssertIsTrue(index >= 0 && index < m_Count, "PooledList<T>.get_Item", "index out of range", index, m_Count);
+                Log.AssertIsTrue(index >= 0 && index < m_Count, "XList", typeof(T).Name, "get_Item Index Out Of Range", index, m_Count);
                 return m_Array[index];
             }
             set
             {
-                Log.AssertIsTrue(index >= 0 && index < m_Array.Length, "PooledList<T>.set_Item", "index out of range", index, m_Count);
-                if (index >= m_Count && index < m_Array.Length)
+                // resize if necessary
+                if (index >= m_Array.Length)
                 {
-                    m_Count = index + 1;
+#if UNITY_EDITOR && DEBUG
+                    var oldLen = m_Array == null ? 0 : m_Array.Length;
+#endif
+                    ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, index + 1, ArrayPool<T>.Shared);
+#if UNITY_EDITOR && DEBUG
+                    Log.W("XList", typeof(T).Name, "set_Item Index Out Of Range Trigger Resize", index, oldLen, "->", m_Array.Length);
+#endif
                 }
+                // set count if necessary
+                if (index >= m_Count) m_Count = index + 1;
                 m_Array[index] = value;
             }
-        }
-
-        public XList(Pool listPool, ArrayPool<T> arrayPool, int minimumCapacity)
-        {
-            m_ListPool = listPool ?? Pool.Shared;
-            m_ArrayPool = arrayPool ?? ArrayPool<T>.Shared;
-            m_Array = arrayPool.Rent(minimumCapacity);
-            m_Count = 0;
         }
 
         /// <summary>
@@ -221,7 +123,7 @@ namespace XPool
             // If the array is full, double the size of the array.
             if (m_Count == m_Array.Length)
             {
-                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Count * 2, m_ArrayPool);
+                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Count * 2, ArrayPool<T>.Shared);
             }
             m_Array[m_Count] = item;
             m_Count++;
@@ -239,21 +141,25 @@ namespace XPool
 
         public XList<T> Copy(T one)
         {
-            ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, 1, m_ArrayPool);
+            ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, 1, ArrayPool<T>.Shared);
             m_Array[0] = one;
             m_Count = 1;
             return this;
         }
 
-        public XList<T> Copy(IList<T> list)
+        public void Copy(IList<T> list)
         {
-            ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, list.Count, m_ArrayPool);
+            if (list == null)
+            {
+                Clear();
+                return;
+            }
+            ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, list.Count, ArrayPool<T>.Shared);
             for (int i = 0; i < list.Count; i++)
             {
                 m_Array[i] = list[i];
             }
             m_Count = list.Count;
-            return this;
         }
 
         public void Fill(T v, int offset, int length)
@@ -261,7 +167,7 @@ namespace XPool
             var count = offset + length;
             if (m_Count < count)
             {
-                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, count, m_ArrayPool);
+                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, count, ArrayPool<T>.Shared);
             }
             for (int i = offset; i < count; i++)
             {
@@ -281,7 +187,7 @@ namespace XPool
             var max = Math.Max(m_Count + 1, index + 1);
             if (max >= m_Array.Length)
             {
-                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Array.Length * 2, m_ArrayPool);
+                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Array.Length * 2, ArrayPool<T>.Shared);
             }
 
             if (index < m_Count)
@@ -309,7 +215,7 @@ namespace XPool
             {
                 int count = c.Count;
 
-                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Count + count, m_ArrayPool);
+                ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Count + count, ArrayPool<T>.Shared);
                 if (index < m_Count)
                 {
                     System.Array.Copy(m_Array, index, m_Array, index + count, m_Count - index);
@@ -437,9 +343,9 @@ namespace XPool
         /// </summary>
         public void Clear()
         {
-            m_ArrayPool.Return(m_Array, !RuntimeHelpers.IsWellKnownNoReferenceContainsType<T>());
+            ArrayPool<T>.Shared.Return(m_Array, !RuntimeHelpers.IsWellKnownNoReferenceContainsType<T>());
 
-            m_Array = m_ArrayPool.Rent(0);
+            m_Array = null;
             m_Count = 0;
         }
 
@@ -830,7 +736,7 @@ namespace XPool
         public XList<T> FindAll(Predicate<T> match)
         {
             if (match == null) return null;
-            XList<T> result = Pool.Shared.Rent();
+            XList<T> result = Get();
             for (int i = 0; i < m_Count; i++)
             {
                 T item = m_Array[i];
@@ -879,7 +785,7 @@ namespace XPool
         /// <param name="item"> Object to add to the stack. </param>
         public void Push(T item)
         {
-            ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Count + 1, m_ArrayPool);
+            ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, m_Count + 1, ArrayPool<T>.Shared);
             m_Array[m_Count] = item;
             m_Count++;
         }
@@ -910,7 +816,7 @@ namespace XPool
         public void Dispose()
         {
             Clear();
-            m_ListPool.Return(this);
+            AnyPool<XList<T>>.Release(this);
         }
     }
 }

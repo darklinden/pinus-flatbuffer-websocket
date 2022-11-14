@@ -7,15 +7,19 @@ namespace XPool
 {
     public class ArrayPool<T>
     {
-        const int kMaxBucketSize = 64 * 10;
-
         public static readonly ArrayPool<T> Shared = new ArrayPool<T>();
 
         readonly Stack<T[]>[] m_Pool;
+        readonly StackCounter[] m_StackCounters;
 
         public ArrayPool()
         {
             m_Pool = new Stack<T[]>[18];
+            m_StackCounters = new StackCounter[18];
+            for (int i = 0; i < m_Pool.Length; i++)
+            {
+                m_StackCounters[i] = StackCounter.Start;
+            }
         }
 
         /// <summary>
@@ -39,7 +43,7 @@ namespace XPool
                 if (m_Pool[poolIndex] == null)
                 {
                     Profiler.BeginSample("ArrayPool.Rent Alloc Stack");
-                    m_Pool[poolIndex] = new Stack<T[]>();
+                    m_Pool[poolIndex] = new Stack<T[]>(m_StackCounters[poolIndex].MaxCount);
                     Profiler.EndSample();
                 }
 
@@ -90,7 +94,7 @@ namespace XPool
             if (m_Pool[poolIndex] == null)
             {
                 Profiler.BeginSample("ArrayPool.Return Alloc Stack");
-                m_Pool[poolIndex] = new Stack<T[]>();
+                m_Pool[poolIndex] = new Stack<T[]>(m_StackCounters[poolIndex].MaxCount);
                 Profiler.EndSample();
             }
 
@@ -101,13 +105,12 @@ namespace XPool
                 Array.Clear(array, 0, array.Length);
             }
 
-            if (pool.Count < kMaxBucketSize)
+            var resized = RuntimeHelpers.BeforeStackPushResize(pool, ref m_StackCounters[poolIndex]);
+            pool.Push(array);
+
+            if (resized)
             {
-                pool.Push(array);
-            }
-            else
-            {
-                Log.D("ArrayPool Return Out Of Stack", array.Length, pool.Count);
+                Log.W("ArrayPool Return Out Of Stack Trigger Resize", typeof(T).Name, array.Length, m_StackCounters[poolIndex].MaxCount);
             }
         }
 
@@ -125,7 +128,6 @@ namespace XPool
         public void ReleaseInstances(int keep)
         {
             if (keep < 0) keep = 0;
-            if (keep > kMaxBucketSize) keep = kMaxBucketSize;
 
             if (keep > 0)
             {

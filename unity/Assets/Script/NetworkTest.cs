@@ -9,6 +9,55 @@ public class NetworkTest : MonoBehaviour
 {
     private void OnEnable()
     {
+        // test array pool
+        var arrayPool = ArrayPool<byte>.Shared;
+        var list = XList<byte[]>.Get(20);
+
+        for (int i = 0; i < 10; i++)
+        {
+            list[i] = arrayPool.Rent(1024);
+        }
+        for (int i = 0; i < 10; i++)
+        {
+            arrayPool.Return(list[i]);
+        }
+
+        for (int i = 0; i < 20; i++)
+        {
+            list[i] = arrayPool.Rent(1024);
+        }
+        for (int i = 0; i < 20; i++)
+        {
+            arrayPool.Return(list[i]);
+        }
+
+        for (int i = 0; i < 30; i++)
+        {
+            list[i] = arrayPool.Rent(1024);
+        }
+        for (int i = 0; i < 30; i++)
+        {
+            arrayPool.Return(list[i]);
+        }
+
+        for (int i = 0; i < 40; i++)
+        {
+            list[i] = arrayPool.Rent(1024);
+        }
+        for (int i = 0; i < 40; i++)
+        {
+            arrayPool.Return(list[i]);
+        }
+
+        for (int i = 0; i < 80; i++)
+        {
+            list[i] = arrayPool.Rent(1024);
+        }
+        for (int i = 0; i < 80; i++)
+        {
+            arrayPool.Return(list[i]);
+        }
+
         // configs 
         Configs.Instance.Init();
         Configs.Instance.LogConfigs();

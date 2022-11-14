@@ -44,73 +44,10 @@ namespace XPool
     public class XDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IReadOnlyDictionary<TKey, TValue>,
         ISerializable, IDeserializationCallback, IDisposable
     {
-        public class Pool
-        {
-            const int kMaxBucketSize = 64 * 10;
-
-            readonly Stack<XDictionary<TKey, TValue>> m_Pool;
-
-            public Pool()
-            {
-                m_Pool = new Stack<XDictionary<TKey, TValue>>();
-            }
-
-            /// <summary>
-            /// The array length is not always accurate.
-            /// </summary>
-            /// <exception cref="ArgumentOutOfRangeException"></exception>
-            public XDictionary<TKey, TValue> Rent()
-            {
-                if (m_Pool.Count != 0)
-                {
-                    // Log.D("PooledBuffer Rent from pool");
-                    return m_Pool.Pop();
-                }
-
-                // Log.D("PooledBuffer Rent new");
-                Profiler.BeginSample("PooledDictionary.Rent Alloc");
-                var allocBuffer = new XDictionary<TKey, TValue>();
-                Profiler.EndSample();
-                return allocBuffer;
-            }
-
-            /// <summary>
-            /// <para> Return the array to the pool. </para>
-            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
-            /// </summary>
-            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(XDictionary<TKey, TValue> buffer)
-            {
-                if (buffer == null) return;
-                buffer.Clear();
-                if (m_Pool.Count < kMaxBucketSize)
-                {
-                    m_Pool.Push(buffer);
-                }
-                else
-                {
-                    Log.E("PooledDictionary Pool is full");
-                }
-            }
-
-            /// <summary>
-            /// <para> Return the array to the pool and set array reference to null. </para>
-            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
-            /// </summary>
-            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(ref XDictionary<TKey, TValue> buffer)
-            {
-                Return(buffer);
-                buffer = null;
-            }
-        }
-
-        private static readonly Pool s_Pool = new Pool();
         public static XDictionary<TKey, TValue> Get()
         {
-            return s_Pool.Rent();
+            return AnyPool<XDictionary<TKey, TValue>>.Get();
         }
-
 
         private struct Entry
         {
@@ -1545,7 +1482,7 @@ namespace XPool
             _size = 0;
             _freeList = -1;
             _freeCount = 0;
-            s_Pool.Return(this);
+            AnyPool<XDictionary<TKey, TValue>>.Release(this);
         }
 
         public struct Enumerator : IEnumerator<KeyValuePair<TKey, TValue>>, IDictionaryEnumerator

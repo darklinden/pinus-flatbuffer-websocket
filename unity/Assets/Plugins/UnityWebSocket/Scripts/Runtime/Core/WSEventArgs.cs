@@ -14,52 +14,6 @@ namespace UnityWebSocket
 
     public class WSEventArgs : EventArgs, IDisposable
     {
-        public class Pool
-        {
-            private const int kMaxBucketSize = 64;
-
-            private readonly Stack<WSEventArgs> m_Pool;
-
-            public Pool()
-            {
-                m_Pool = new Stack<WSEventArgs>();
-            }
-
-            public WSEventArgs Rent()
-            {
-                if (m_Pool.Count != 0)
-                {
-                    Log.D("WSEventArgs Pop", m_Pool.Count);
-                    return m_Pool.Pop();
-                }
-
-                Log.D("WSEventArgs New");
-                return new WSEventArgs();
-            }
-
-            public void Return(WSEventArgs buffer)
-            {
-                if (buffer == null) return;
-                if (m_Pool.Count < kMaxBucketSize)
-                {
-                    Log.D("WSEventArgs Push", m_Pool.Count);
-                    m_Pool.Push(buffer);
-                }
-                else
-                {
-                    Log.E("WSEventArgs Pool is full");
-                }
-            }
-
-            public void Return(ref WSEventArgs buffer)
-            {
-                Return(buffer);
-                buffer = null;
-            }
-        }
-
-        public static readonly Pool Shared = new Pool();
-
         public WSEventType EventType { get; internal set; }
 
         public ushort CloseCode { get; internal set; }
@@ -79,7 +33,7 @@ namespace UnityWebSocket
 
         public static WSEventArgs Get()
         {
-            var args = Shared.Rent();
+            var args = AnyPool<WSEventArgs>.Get();
             return args;
         }
 
@@ -91,7 +45,7 @@ namespace UnityWebSocket
                 Data.Dispose();
                 Data = null;
             }
-            Shared.Return(this);
+            AnyPool<WSEventArgs>.Release(this);
         }
     }
 }
