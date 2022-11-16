@@ -1,4 +1,6 @@
-﻿using System;
+﻿// #define ENABLE_LOG
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -57,7 +59,15 @@ namespace XPool
         {
             get
             {
-                Log.AssertIsTrue(index >= 0 && index < m_Count, "XList", typeof(T).Name, "get_Item Index Out Of Range", index, m_Count);
+#if ENABLE_LOG
+#if UNITY_EDITOR && DEBUG
+                if (index >= m_Count)
+                {
+                    Log.W("XList.this[int index]", "index >= m_Count");
+                }
+#endif
+                Log.AssertIsTrue(m_Array != null && index >= 0 && index < m_Array.Length, "XList", typeof(T).Name, "get_Item Index Out Of Range", index, m_Count);
+#endif
                 return m_Array[index];
             }
             set
@@ -65,11 +75,11 @@ namespace XPool
                 // resize if necessary
                 if (index >= m_Array.Length)
                 {
-#if UNITY_EDITOR && DEBUG
+#if ENABLE_LOG && UNITY_EDITOR && DEBUG
                     var oldLen = m_Array == null ? 0 : m_Array.Length;
 #endif
                     ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, index + 1, ArrayPool<T>.Shared);
-#if UNITY_EDITOR && DEBUG
+#if ENABLE_LOG && UNITY_EDITOR && DEBUG
                     Log.W("XList", typeof(T).Name, "set_Item Index Out Of Range Trigger Resize", index, oldLen, "->", m_Array.Length);
 #endif
                 }

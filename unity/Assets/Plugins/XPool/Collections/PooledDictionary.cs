@@ -38,8 +38,6 @@ namespace XPool
     /// In the rare case where an enumeration contends with write accesses, the collection must be locked during the entire enumeration. 
     /// To allow the collection to be accessed by multiple threads for reading and writing, you must implement your own synchronization. 
     /// </remarks>
-    [DebuggerTypeProxy(typeof(IDictionaryDebugView<,>))]
-    [DebuggerDisplay("Count = {Count}")]
     [Serializable]
     public class XDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IReadOnlyDictionary<TKey, TValue>,
         ISerializable, IDeserializationCallback, IDisposable
@@ -384,7 +382,9 @@ namespace XPool
         {
             get
             {
+                Profiler.BeginSample("XDictionary.get_Item");
                 int i = FindEntry(key);
+                Profiler.EndSample();
                 if (i >= 0) return _entries[i].value;
                 ThrowHelper.ThrowKeyNotFoundException(key);
                 return default;
@@ -603,6 +603,7 @@ namespace XPool
 
         private int FindEntry(TKey key)
         {
+            Profiler.BeginSample("FindEntry.Prepare");
             if (key == null)
             {
                 ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
@@ -617,24 +618,38 @@ namespace XPool
             var entries = _entries;
             int collisionCount = 0;
             IEqualityComparer<TKey> comparer = _comparer;
+            Profiler.EndSample();
 
             if (comparer == null)
             {
+                Profiler.BeginSample("FindEntry.GetHashCode");
                 int hashCode = key.GetHashCode() & Lower31BitMask;
                 // Value in _buckets is 1-based
                 i = buckets[hashCode % length] - 1;
-                if (default(TKey) != null)
+                Profiler.EndSample();
+
+                Profiler.BeginSample("FindEntry.default");
+                var default_key = default(TKey);
+                Profiler.EndSample();
+
+                if (default_key != null)
                 {
                     // ValueType: Devirtualize with EqualityComparer<TValue>.Default intrinsic
                     do
                     {
                         // Should be a while loop https://github.com/dotnet/coreclr/issues/15476
                         // Test in if to drop range check for following array access
-                        if ((uint)i >= (uint)length || (entries[i].hashCode == hashCode && EqualityComparer<TKey>.Default.Equals(entries[i].key, key)))
+
+                        Profiler.BeginSample("FindEntry.Comparer");
+                        var cmp = (uint)i >= (uint)length || (entries[i].hashCode == hashCode && EqualityComparer<TKey>.Default.Equals(entries[i].key, key));
+                        Profiler.EndSample();
+
+                        if (cmp)
                         {
                             break;
                         }
 
+                        Profiler.BeginSample("FindEntry.CollisionCount");
                         i = entries[i].next;
                         if (collisionCount >= length)
                         {
@@ -643,6 +658,7 @@ namespace XPool
                             ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
                         }
                         collisionCount++;
+                        Profiler.EndSample();
                     } while (true);
                 }
                 else
@@ -650,7 +666,9 @@ namespace XPool
                     // Object type: Shared Generic, EqualityComparer<TValue>.Default won't devirtualize
                     // https://github.com/dotnet/coreclr/issues/17273
                     // So cache in a local rather than get EqualityComparer per loop iteration
+                    Profiler.BeginSample("FindEntry.EqualityComparer.Default");
                     var defaultComparer = EqualityComparer<TKey>.Default;
+                    Profiler.EndSample();
                     do
                     {
                         // Should be a while loop https://github.com/dotnet/coreclr/issues/15476
@@ -1614,8 +1632,6 @@ namespace XPool
             }
         }
 
-        [DebuggerTypeProxy(typeof(DictionaryKeyCollectionDebugView<,>))]
-        [DebuggerDisplay("Count = {Count}")]
         public sealed class KeyCollection : ICollection<TKey>, ICollection, IReadOnlyCollection<TKey>
         {
             private readonly XDictionary<TKey, TValue> _dictionary;
@@ -1787,8 +1803,6 @@ namespace XPool
             }
         }
 
-        [DebuggerTypeProxy(typeof(DictionaryValueCollectionDebugView<,>))]
-        [DebuggerDisplay("Count = {Count}")]
         public sealed class ValueCollection : ICollection<TValue>, ICollection, IReadOnlyCollection<TValue>
         {
             private readonly XDictionary<TKey, TValue> _dictionary;
