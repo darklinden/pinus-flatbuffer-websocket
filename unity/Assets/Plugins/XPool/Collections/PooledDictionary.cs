@@ -6,7 +6,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.Serialization;
 using UnityEngine.Profiling;
 
 namespace XPool
@@ -38,9 +37,9 @@ namespace XPool
     /// In the rare case where an enumeration contends with write accesses, the collection must be locked during the entire enumeration. 
     /// To allow the collection to be accessed by multiple threads for reading and writing, you must implement your own synchronization. 
     /// </remarks>
+
     [Serializable]
-    public class XDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IReadOnlyDictionary<TKey, TValue>,
-        ISerializable, IDeserializationCallback, IDisposable
+    public class XDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IReadOnlyDictionary<TKey, TValue>, IDisposable
     {
         public static XDictionary<TKey, TValue> Get()
         {
@@ -137,7 +136,7 @@ namespace XPool
         /// </summary>
         public XDictionary(int capacity, ClearMode clearMode, IEqualityComparer<TKey> comparer)
         {
-            if (capacity < 0) ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.capacity);
+            if (capacity < 0) throw new ArgumentOutOfRangeException(nameof(capacity));
             if (capacity > 0) Initialize(capacity);
             if (comparer != EqualityComparer<TKey>.Default)
             {
@@ -176,7 +175,7 @@ namespace XPool
             this(dictionary?.Count ?? 0, clearMode, comparer)
         {
             if (dictionary == null)
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.dictionary);
+                throw new ArgumentNullException(nameof(dictionary));
 
             // It is likely that the passed-in dictionary is PooledDictionary<TKey,TValue>. When this is the case,
             // avoid the enumerator allocation and overhead by looping through the entries array directly.
@@ -227,7 +226,7 @@ namespace XPool
             this((collection as ICollection<KeyValuePair<TKey, TValue>>)?.Count ?? 0, clearMode, comparer)
         {
             if (collection == null)
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.collection);
+                throw new ArgumentNullException(nameof(collection));
 
             foreach (var pair in collection)
             {
@@ -260,28 +259,12 @@ namespace XPool
             : this((collection as ICollection<(TKey, TValue)>)?.Count ?? 0, clearMode, comparer)
         {
             if (collection == null)
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.collection);
+                throw new ArgumentNullException(nameof(collection));
 
             foreach (var (key, value) in collection)
             {
                 TryInsert(key, value, InsertionBehavior.ThrowOnExisting);
             }
-        }
-
-#pragma warning disable IDE0060 // Remove unused parameter
-        /// <summary>
-        /// Creates a new instance of PooledDictionary.
-        /// </summary>
-        protected XDictionary(SerializationInfo info, StreamingContext context)
-#pragma warning restore IDE0060
-        {
-            _clearKeyOnFree = (bool?)info.GetValue(ClearKeyName, typeof(bool)) ?? ShouldClearKey(ClearMode.Auto);
-            _clearValueOnFree = (bool?)info.GetValue(ClearValueName, typeof(bool)) ?? ShouldClearValue(ClearMode.Auto);
-
-            // We can't do anything with the keys and values until the entire graph has been deserialized
-            // and we have a resonable estimate that GetHashCode is not going to fail.  For the time being,
-            // we'll just cache this.  The graph is not valid until OnDeserialization has been called.
-            HashHelpers.SerializationInfoTable.Add(this, info);
         }
 
         #endregion
@@ -382,12 +365,9 @@ namespace XPool
         {
             get
             {
-                Profiler.BeginSample("XDictionary.get_Item");
                 int i = FindEntry(key);
-                Profiler.EndSample();
                 if (i >= 0) return _entries[i].value;
-                ThrowHelper.ThrowKeyNotFoundException(key);
-                return default;
+                throw new KeyNotFoundException();
             }
             set
             {
@@ -408,7 +388,7 @@ namespace XPool
         public void AddRange(IEnumerable<KeyValuePair<TKey, TValue>> enumerable)
         {
             if (enumerable is null)
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.enumerable);
+                throw new ArgumentNullException(nameof(enumerable));
 
             if (enumerable is ICollection<KeyValuePair<TKey, TValue>> collection)
                 EnsureCapacity(_count + collection.Count);
@@ -422,7 +402,7 @@ namespace XPool
         public void AddRange(IEnumerable<(TKey key, TValue value)> enumerable)
         {
             if (enumerable is null)
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.enumerable);
+                throw new ArgumentNullException(nameof(enumerable));
 
             if (enumerable is ICollection<KeyValuePair<TKey, TValue>> collection)
                 EnsureCapacity(_count + collection.Count);
@@ -541,19 +521,12 @@ namespace XPool
         private void CopyTo(KeyValuePair<TKey, TValue>[] array, int index)
         {
             if (array == null)
-            {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
-            }
+                throw new ArgumentNullException(nameof(array));
 
             if ((uint)index > (uint)array.Length)
-            {
-                ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
-            }
+                throw new ArgumentOutOfRangeException(nameof(index) + " - " + index);
 
-            if (array.Length - index < Count)
-            {
-                ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_ArrayPlusOffTooSmall);
-            }
+            if (array.Length - index < Count) throw new ArgumentException();
 
             int count = _count;
             var entries = _entries;
@@ -572,42 +545,9 @@ namespace XPool
         IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
             => new Enumerator(this, Enumerator.KeyValuePair);
 
-        void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
-            => GetObjectData(info, context);
-
-        /// <summary>
-        /// Allows child classes to add their own serialization data.
-        /// </summary>
-        /// <param name="info"></param>
-        /// <param name="context"></param>
-        protected virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            if (info == null)
-            {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.info);
-            }
-
-            info.AddValue(VersionName, _version);
-            info.AddValue(ComparerName, _comparer ?? EqualityComparer<TKey>.Default, typeof(IEqualityComparer<TKey>));
-            info.AddValue(HashSizeName, _size); // This is the length of the bucket array
-            info.AddValue(ClearKeyName, _clearKeyOnFree);
-            info.AddValue(ClearValueName, _clearValueOnFree);
-
-            if (_buckets != null)
-            {
-                var array = new KeyValuePair<TKey, TValue>[Count];
-                CopyTo(array, 0);
-                info.AddValue(KeyValuePairsName, array, typeof(KeyValuePair<TKey, TValue>[]));
-            }
-        }
-
         private int FindEntry(TKey key)
         {
-            Profiler.BeginSample("FindEntry.Prepare");
-            if (key == null)
-            {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
-            }
+            if (key == null) throw new ArgumentNullException(nameof(key));
 
             int i = -1;
             int length = _size;
@@ -618,47 +558,32 @@ namespace XPool
             var entries = _entries;
             int collisionCount = 0;
             IEqualityComparer<TKey> comparer = _comparer;
-            Profiler.EndSample();
 
             if (comparer == null)
             {
-                Profiler.BeginSample("FindEntry.GetHashCode");
                 int hashCode = key.GetHashCode() & Lower31BitMask;
                 // Value in _buckets is 1-based
                 i = buckets[hashCode % length] - 1;
-                Profiler.EndSample();
-
-                Profiler.BeginSample("FindEntry.default");
-                var default_key = default(TKey);
-                Profiler.EndSample();
-
-                if (default_key != null)
+                if (default(TKey) != null)
                 {
                     // ValueType: Devirtualize with EqualityComparer<TValue>.Default intrinsic
                     do
                     {
                         // Should be a while loop https://github.com/dotnet/coreclr/issues/15476
                         // Test in if to drop range check for following array access
-
-                        Profiler.BeginSample("FindEntry.Comparer");
-                        var cmp = (uint)i >= (uint)length || (entries[i].hashCode == hashCode && EqualityComparer<TKey>.Default.Equals(entries[i].key, key));
-                        Profiler.EndSample();
-
-                        if (cmp)
+                        if ((uint)i >= (uint)length || (entries[i].hashCode == hashCode && EqualityComparer<TKey>.Default.Equals(entries[i].key, key)))
                         {
                             break;
                         }
 
-                        Profiler.BeginSample("FindEntry.CollisionCount");
                         i = entries[i].next;
                         if (collisionCount >= length)
                         {
                             // The chain of entries forms a loop; which means a concurrent update has happened.
                             // Break out of the loop and throw, rather than looping forever.
-                            ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                            throw new InvalidOperationException("Concurrent operations are not supported.");
                         }
                         collisionCount++;
-                        Profiler.EndSample();
                     } while (true);
                 }
                 else
@@ -666,9 +591,7 @@ namespace XPool
                     // Object type: Shared Generic, EqualityComparer<TValue>.Default won't devirtualize
                     // https://github.com/dotnet/coreclr/issues/17273
                     // So cache in a local rather than get EqualityComparer per loop iteration
-                    Profiler.BeginSample("FindEntry.EqualityComparer.Default");
                     var defaultComparer = EqualityComparer<TKey>.Default;
-                    Profiler.EndSample();
                     do
                     {
                         // Should be a while loop https://github.com/dotnet/coreclr/issues/15476
@@ -683,7 +606,7 @@ namespace XPool
                         {
                             // The chain of entries forms a loop; which means a concurrent update has happened.
                             // Break out of the loop and throw, rather than looping forever.
-                            ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                            throw new InvalidOperationException("Concurrent operations are not supported.");
                         }
                         collisionCount++;
                     } while (true);
@@ -709,7 +632,7 @@ namespace XPool
                     {
                         // The chain of entries forms a loop; which means a concurrent update has happened.
                         // Break out of the loop and throw, rather than looping forever.
-                        ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                        throw new InvalidOperationException("Concurrent operations are not supported.");
                     }
                     collisionCount++;
                 } while (true);
@@ -731,10 +654,7 @@ namespace XPool
 
         private bool TryInsert(TKey key, TValue value, InsertionBehavior behavior)
         {
-            if (key == null)
-            {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
-            }
+            if (key == null) throw new ArgumentNullException(nameof(key));
 
             if (_buckets == null || _size == 0)
             {
@@ -776,9 +696,7 @@ namespace XPool
                             }
 
                             if (behavior == InsertionBehavior.ThrowOnExisting)
-                            {
-                                ThrowHelper.ThrowAddingDuplicateWithKeyArgumentException(key);
-                            }
+                                throw new ArgumentException("An item with the same key has already been added. Key: " + key);
 
                             return false;
                         }
@@ -788,7 +706,7 @@ namespace XPool
                         {
                             // The chain of entries forms a loop; which means a concurrent update has happened.
                             // Break out of the loop and throw, rather than looping forever.
-                            ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                            throw new InvalidOperationException("Concurrent operations are not supported.");
                         }
                         collisionCount++;
                     } while (true);
@@ -819,7 +737,7 @@ namespace XPool
 
                             if (behavior == InsertionBehavior.ThrowOnExisting)
                             {
-                                ThrowHelper.ThrowAddingDuplicateWithKeyArgumentException(key);
+                                throw new ArgumentException("An item with the same key has already been added. Key: " + key);
                             }
 
                             return false;
@@ -830,7 +748,7 @@ namespace XPool
                         {
                             // The chain of entries forms a loop; which means a concurrent update has happened.
                             // Break out of the loop and throw, rather than looping forever.
-                            ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                            throw new InvalidOperationException("Concurrent operations are not supported.");
                         }
                         collisionCount++;
                     } while (true);
@@ -858,7 +776,7 @@ namespace XPool
 
                         if (behavior == InsertionBehavior.ThrowOnExisting)
                         {
-                            ThrowHelper.ThrowAddingDuplicateWithKeyArgumentException(key);
+                            throw new ArgumentException("An item with the same key has already been added. Key: " + key);
                         }
 
                         return false;
@@ -869,7 +787,7 @@ namespace XPool
                     {
                         // The chain of entries forms a loop; which means a concurrent update has happened.
                         // Break out of the loop and throw, rather than looping forever.
-                        ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                        throw new InvalidOperationException("Concurrent operations are not supported.");
                     }
                     collisionCount++;
                 } while (true);
@@ -925,51 +843,6 @@ namespace XPool
             }
 
             return true;
-        }
-
-        public virtual void OnDeserialization(object sender)
-        {
-            HashHelpers.SerializationInfoTable.TryGetValue(this, out SerializationInfo siInfo);
-
-            if (siInfo == null)
-            {
-                // We can return immediately if this function is called twice. 
-                // Note we remove the serialization info from the table at the end of this method.
-                return;
-            }
-
-            int realVersion = siInfo.GetInt32(VersionName);
-            int hashsize = siInfo.GetInt32(HashSizeName);
-            _comparer = (IEqualityComparer<TKey>)siInfo.GetValue(ComparerName, typeof(IEqualityComparer<TKey>));
-
-            if (hashsize != 0)
-            {
-                Initialize(hashsize);
-
-                var array = (KeyValuePair<TKey, TValue>[])
-                    siInfo.GetValue(KeyValuePairsName, typeof(KeyValuePair<TKey, TValue>[]));
-
-                if (array == null)
-                {
-                    throw new SerializationException("Serialized PooledDictionary missing data.");
-                }
-
-                for (int i = 0; i < array.Length; i++)
-                {
-                    if (array[i].Key == null)
-                    {
-                        throw new SerializationException("Serialized PooledDictionary had null key.");
-                    }
-                    Add(array[i].Key, array[i].Value);
-                }
-            }
-            else
-            {
-                _buckets = null;
-            }
-
-            _version = realVersion;
-            HashHelpers.SerializationInfoTable.Remove(this);
         }
 
         private void Resize()
@@ -1044,10 +917,7 @@ namespace XPool
         // Code has been intentionally duplicated for performance reasons.
         public bool Remove(TKey key)
         {
-            if (key == null)
-            {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
-            }
+            if (key == null) throw new ArgumentNullException(nameof(key));
 
             var buckets = _buckets;
             var entries = _entries;
@@ -1094,7 +964,7 @@ namespace XPool
                     {
                         // The chain of entries forms a loop; which means a concurrent update has happened.
                         // Break out of the loop and throw, rather than looping forever.
-                        ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                        throw new InvalidOperationException("Concurrent operations are not supported.");
                     }
                     collisionCount++;
                 }
@@ -1109,7 +979,7 @@ namespace XPool
         {
             if (key == null)
             {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
+                throw new ArgumentNullException(nameof(key));
             }
 
             var buckets = _buckets;
@@ -1157,7 +1027,7 @@ namespace XPool
                 {
                     // The chain of entries forms a loop; which means a concurrent update has happened.
                     // Break out of the loop and throw, rather than looping forever.
-                    ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
+                    throw new InvalidOperationException("Concurrent operations are not supported.");
                 }
                 collisionCount++;
             }
@@ -1206,16 +1076,11 @@ namespace XPool
 
         void ICollection.CopyTo(Array array, int index)
         {
-            if (array == null)
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
-            if (array.Rank != 1)
-                ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_RankMultiDimNotSupported);
-            if (array.GetLowerBound(0) != 0)
-                ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_NonZeroLowerBound);
-            if ((uint)index > (uint)array.Length)
-                ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
-            if (array.Length - index < Count)
-                ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_ArrayPlusOffTooSmall);
+            if (array == null) throw new ArgumentNullException(nameof(array));
+            if (array.Rank != 1) throw new ArgumentException("Multi dimensional array.", nameof(array));
+            if (array.GetLowerBound(0) != 0) throw new ArgumentException("Non zero lower bound.", nameof(array));
+            if ((uint)index > (uint)array.Length) throw new ArgumentOutOfRangeException(nameof(index), "Index was out of range. Must be non-negative and less than the size of the collection.");
+            if (array.Length - index < Count) throw new ArgumentException("ArrayPlusOffTooSmall.", nameof(array));
 
             if (array is KeyValuePair<TKey, TValue>[] pairs)
             {
@@ -1248,12 +1113,12 @@ namespace XPool
                 }
                 catch (ArrayTypeMismatchException)
                 {
-                    ThrowHelper.ThrowArgumentException_Argument_InvalidArrayType();
+                    throw new ArgumentException("Invalid array type.", nameof(array));
                 }
             }
             else
             {
-                ThrowHelper.ThrowArgumentException_Argument_InvalidArrayType();
+                throw new ArgumentException("Invalid array type.", nameof(array));
             }
         }
 
@@ -1265,8 +1130,7 @@ namespace XPool
         /// </summary>
         public int EnsureCapacity(int capacity)
         {
-            if (capacity < 0)
-                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.capacity);
+            if (capacity < 0) throw new ArgumentOutOfRangeException(nameof(capacity));
             int currentCapacity = _size;
             if (currentCapacity >= capacity)
                 return currentCapacity;
@@ -1370,9 +1234,11 @@ namespace XPool
             {
                 if (key == null)
                 {
-                    ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
+                    throw new ArgumentNullException(nameof(key));
                 }
-                ThrowHelper.IfNullAndNullsAreIllegalThenThrow<TValue>(value, ExceptionArgument.value);
+
+                if (value == null && !(default(TValue) == null))
+                    throw new ArgumentException("Argument_InvalidValue", nameof(value));
 
                 try
                 {
@@ -1383,12 +1249,12 @@ namespace XPool
                     }
                     catch (InvalidCastException)
                     {
-                        ThrowHelper.ThrowWrongValueTypeArgumentException(value, typeof(TValue));
+                        throw new ArgumentException("Argument_InvalidValue", nameof(value));
                     }
                 }
                 catch (InvalidCastException)
                 {
-                    ThrowHelper.ThrowWrongKeyTypeArgumentException(key, typeof(TKey));
+                    throw new ArgumentException("Argument_InvalidKeyType", nameof(key));
                 }
             }
         }
@@ -1447,7 +1313,7 @@ namespace XPool
         {
             if (key == null)
             {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
+                throw new ArgumentNullException(nameof(key));
             }
             return key is TKey;
         }
@@ -1456,9 +1322,11 @@ namespace XPool
         {
             if (key == null)
             {
-                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.key);
+                throw new ArgumentNullException(nameof(key));
             }
-            ThrowHelper.IfNullAndNullsAreIllegalThenThrow<TValue>(value, ExceptionArgument.value);
+
+            if (value == null && !(default(TValue) == null))
+                throw new ArgumentException("Argument_InvalidValue", nameof(value));
 
             try
             {
@@ -1470,12 +1338,12 @@ namespace XPool
                 }
                 catch (InvalidCastException)
                 {
-                    ThrowHelper.ThrowWrongValueTypeArgumentException(value, typeof(TValue));
+                    throw new ArgumentException("Argument_InvalidValue", nameof(value));
                 }
             }
             catch (InvalidCastException)
             {
-                ThrowHelper.ThrowWrongKeyTypeArgumentException(key, typeof(TKey));
+                throw new ArgumentException("Argument_InvalidKeyType", nameof(key));
             }
         }
 
@@ -1534,7 +1402,7 @@ namespace XPool
             {
                 if (_version != _dictionary._version)
                 {
-                    ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
+                    throw new InvalidOperationException("InvalidOperation_EnumFailedVersion");
                 }
 
                 // Use unsigned comparison since we set index to dictionary.count+1 when the enumeration ends.
@@ -1567,7 +1435,7 @@ namespace XPool
                 {
                     if (_index == 0 || (_index == _dictionary._count + 1))
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen();
+                        throw new InvalidOperationException("InvalidOperation_EnumOpCantHappen");
                     }
 
                     if (_getEnumeratorRetType == DictEntry)
@@ -1585,7 +1453,7 @@ namespace XPool
             {
                 if (_version != _dictionary._version)
                 {
-                    ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
+                    throw new InvalidOperationException("InvalidOperation_EnumFailedVersion");
                 }
 
                 _index = 0;
@@ -1598,7 +1466,7 @@ namespace XPool
                 {
                     if (_index == 0 || (_index == _dictionary._count + 1))
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen();
+                        throw new InvalidOperationException("InvalidOperation_EnumOpCantHappen");
                     }
 
                     return new DictionaryEntry(_current.Key, _current.Value);
@@ -1611,7 +1479,7 @@ namespace XPool
                 {
                     if (_index == 0 || (_index == _dictionary._count + 1))
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen();
+                        throw new InvalidOperationException("InvalidOperation_EnumOpCantHappen");
                     }
 
                     return _current.Key;
@@ -1624,7 +1492,7 @@ namespace XPool
                 {
                     if (_index == 0 || (_index == _dictionary._count + 1))
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen();
+                        throw new InvalidOperationException("InvalidOperation_EnumOpCantHappen");
                     }
 
                     return _current.Value;
@@ -1646,14 +1514,9 @@ namespace XPool
 
             public void CopyTo(TKey[] array, int index)
             {
-                if (array == null)
-                    ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
-
-                if (index < 0 || index > array.Length)
-                    ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
-
-                if (array.Length - index < _dictionary.Count)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_ArrayPlusOffTooSmall);
+                if (array == null) throw new ArgumentNullException(nameof(array));
+                if (index < 0 || index > array.Length) throw new ArgumentOutOfRangeException(nameof(index));
+                if (array.Length - index < _dictionary.Count) throw new ArgumentException("Arg_ArrayPlusOffTooSmall");
 
                 int count = _dictionary._count;
                 var entries = _dictionary._entries;
@@ -1668,18 +1531,21 @@ namespace XPool
             bool ICollection<TKey>.IsReadOnly => true;
 
             void ICollection<TKey>.Add(TKey item)
-                => ThrowHelper.ThrowNotSupportedException(ExceptionResource.NotSupported_KeyCollectionSet);
+            {
+                throw new NotSupportedException("NotSupported_KeyCollectionSet");
+            }
 
             void ICollection<TKey>.Clear()
-                => ThrowHelper.ThrowNotSupportedException(ExceptionResource.NotSupported_KeyCollectionSet);
+            {
+                throw new NotSupportedException("NotSupported_KeyCollectionSet");
+            }
 
             bool ICollection<TKey>.Contains(TKey item)
                 => _dictionary.ContainsKey(item);
 
             bool ICollection<TKey>.Remove(TKey item)
             {
-                ThrowHelper.ThrowNotSupportedException(ExceptionResource.NotSupported_KeyCollectionSet);
-                return false;
+                throw new NotSupportedException("NotSupported_KeyCollectionSet");
             }
 
             IEnumerator<TKey> IEnumerable<TKey>.GetEnumerator()
@@ -1690,16 +1556,11 @@ namespace XPool
 
             void ICollection.CopyTo(Array array, int index)
             {
-                if (array == null)
-                    ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
-                if (array.Rank != 1)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_RankMultiDimNotSupported);
-                if (array.GetLowerBound(0) != 0)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_NonZeroLowerBound);
-                if ((uint)index > (uint)array.Length)
-                    ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
-                if (array.Length - index < _dictionary.Count)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_ArrayPlusOffTooSmall);
+                if (array == null) throw new ArgumentNullException(nameof(array));
+                if (array.Rank != 1) throw new ArgumentException("Arg_RankMultiDimNotSupported");
+                if (array.GetLowerBound(0) != 0) throw new ArgumentException("Arg_NonZeroLowerBound");
+                if ((uint)index > (uint)array.Length) throw new ArgumentOutOfRangeException(nameof(index));
+                if (array.Length - index < _dictionary.Count) throw new ArgumentException("Arg_ArrayPlusOffTooSmall");
 
                 if (array is TKey[] keys)
                 {
@@ -1710,7 +1571,7 @@ namespace XPool
                     object[] objects = array as object[];
                     if (objects == null)
                     {
-                        ThrowHelper.ThrowArgumentException_Argument_InvalidArrayType();
+                        throw new ArgumentException("Argument_InvalidArrayType");
                     }
 
                     int count = _dictionary._count;
@@ -1724,7 +1585,7 @@ namespace XPool
                     }
                     catch (ArrayTypeMismatchException)
                     {
-                        ThrowHelper.ThrowArgumentException_Argument_InvalidArrayType();
+                        throw new ArgumentException("Argument_InvalidArrayType");
                     }
                 }
             }
@@ -1756,7 +1617,7 @@ namespace XPool
                 {
                     if (_version != _dictionary._version)
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
+                        throw new InvalidOperationException("InvalidOperation_EnumFailedVersion");
                     }
 
                     while ((uint)_index < (uint)_dictionary._count)
@@ -1783,7 +1644,7 @@ namespace XPool
                     {
                         if (_index == 0 || (_index == _dictionary._count + 1))
                         {
-                            ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen();
+                            throw new InvalidOperationException("InvalidOperation_EnumOpCantHappen");
                         }
 
                         return _currentKey;
@@ -1794,7 +1655,7 @@ namespace XPool
                 {
                     if (_version != _dictionary._version)
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
+                        throw new InvalidOperationException("InvalidOperation_EnumFailedVersion");
                     }
 
                     _index = 0;
@@ -1811,7 +1672,7 @@ namespace XPool
             {
                 if (dictionary == null)
                 {
-                    ThrowHelper.ThrowArgumentNullException(ExceptionArgument.dictionary);
+                    throw new ArgumentNullException(nameof(dictionary));
                 }
                 _dictionary = dictionary;
             }
@@ -1821,14 +1682,9 @@ namespace XPool
 
             public void CopyTo(TValue[] array, int index)
             {
-                if (array == null)
-                    ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
-
-                if (index < 0 || index > array.Length)
-                    ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
-
-                if (array.Length - index < _dictionary.Count)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_ArrayPlusOffTooSmall);
+                if (array == null) throw new ArgumentNullException(nameof(array));
+                if (index < 0 || index > array.Length) throw new ArgumentOutOfRangeException(nameof(index));
+                if (array.Length - index < _dictionary.Count) throw new ArgumentException("Arg_ArrayPlusOffTooSmall");
 
                 int count = _dictionary._count;
                 var entries = _dictionary._entries;
@@ -1843,16 +1699,19 @@ namespace XPool
             bool ICollection<TValue>.IsReadOnly => true;
 
             void ICollection<TValue>.Add(TValue item)
-                => ThrowHelper.ThrowNotSupportedException(ExceptionResource.NotSupported_ValueCollectionSet);
+            {
+                throw new NotSupportedException("NotSupported_ValueCollectionSet");
+            }
 
             bool ICollection<TValue>.Remove(TValue item)
             {
-                ThrowHelper.ThrowNotSupportedException(ExceptionResource.NotSupported_ValueCollectionSet);
-                return false;
+                throw new NotSupportedException("NotSupported_ValueCollectionSet");
             }
 
             void ICollection<TValue>.Clear()
-                => ThrowHelper.ThrowNotSupportedException(ExceptionResource.NotSupported_ValueCollectionSet);
+            {
+                throw new NotSupportedException("NotSupported_ValueCollectionSet");
+            }
 
             bool ICollection<TValue>.Contains(TValue item)
                 => _dictionary.ContainsValue(item);
@@ -1865,17 +1724,11 @@ namespace XPool
 
             void ICollection.CopyTo(Array array, int index)
             {
-                if (array == null)
-                    ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
-                if (array.Rank != 1)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_RankMultiDimNotSupported);
-                if (array.GetLowerBound(0) != 0)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_NonZeroLowerBound);
-                if ((uint)index > (uint)array.Length)
-                    ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
-                if (array.Length - index < _dictionary.Count)
-                    ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_ArrayPlusOffTooSmall);
-
+                if (array == null) throw new ArgumentNullException(nameof(array));
+                if (array.Rank != 1) throw new ArgumentException("Arg_RankMultiDimNotSupported");
+                if (array.GetLowerBound(0) != 0) throw new ArgumentException("Arg_NonZeroLowerBound");
+                if ((uint)index > (uint)array.Length) throw new ArgumentOutOfRangeException(nameof(index));
+                if (array.Length - index < _dictionary.Count) throw new ArgumentException("Arg_ArrayPlusOffTooSmall");
                 if (array is TValue[] values)
                 {
                     CopyTo(values, index);
@@ -1893,12 +1746,12 @@ namespace XPool
                     }
                     catch (ArrayTypeMismatchException)
                     {
-                        ThrowHelper.ThrowArgumentException_Argument_InvalidArrayType();
+                        throw new ArgumentException("Argument_InvalidArrayType");
                     }
                 }
                 else
                 {
-                    ThrowHelper.ThrowArgumentException_Argument_InvalidArrayType();
+                    throw new ArgumentException("Argument_InvalidArrayType");
                 }
             }
 
@@ -1929,7 +1782,7 @@ namespace XPool
                 {
                     if (_version != _dictionary._version)
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
+                        throw new InvalidOperationException("InvalidOperation_EnumFailedVersion");
                     }
 
                     while ((uint)_index < (uint)_dictionary._count)
@@ -1955,7 +1808,7 @@ namespace XPool
                     {
                         if (_index == 0 || (_index == _dictionary._count + 1))
                         {
-                            ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen();
+                            throw new InvalidOperationException("InvalidOperation_EnumOpCantHappen");
                         }
 
                         return _currentValue;
@@ -1966,7 +1819,7 @@ namespace XPool
                 {
                     if (_version != _dictionary._version)
                     {
-                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
+                        throw new InvalidOperationException("InvalidOperation_EnumFailedVersion");
                     }
                     _index = 0;
                     _currentValue = default;

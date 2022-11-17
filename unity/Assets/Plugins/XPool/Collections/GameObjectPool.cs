@@ -83,14 +83,18 @@ namespace XPool
 
             if (go != null)
             {
-                ResetObject(go);
+                go.layer = Prefab.layer;
+                go.transform.SetParent(transform);
+                go.transform.localPosition = Vector3.zero;
+                go.transform.localRotation = Prefab.transform.localRotation;
+                go.transform.localScale = Prefab.transform.localScale;
                 Spawned.Add(go);
             }
 
             return go;
         }
 
-        public void ResetObject(GameObject go)
+        public void ResetObjectForRelease(GameObject go)
         {
             if (go == null)
             {
@@ -98,10 +102,11 @@ namespace XPool
                 return;
             }
 
+            go.layer = 31;
             go.transform.SetParent(transform);
             go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.identity;
-            go.transform.localScale = Vector3.one;
+            go.transform.localRotation = Prefab.transform.localRotation;
+            go.transform.localScale = Prefab.transform.localScale;
         }
 
 
@@ -114,7 +119,7 @@ namespace XPool
         {
             if (Spawned.Remove(obj))
             {
-                ResetObject(obj);
+                ResetObjectForRelease(obj);
                 Pooled.Add(obj);
             }
             else
@@ -129,7 +134,7 @@ namespace XPool
             for (int i = Spawned.Count - 1; i >= 0; i--)
             {
                 var go = Spawned[i];
-                ResetObject(go);
+                ResetObjectForRelease(go);
                 Pooled.Add(go);
                 Spawned.RemoveAt(i);
             }
