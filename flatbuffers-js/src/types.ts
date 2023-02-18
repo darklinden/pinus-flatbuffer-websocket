@@ -9,9 +9,9 @@ export type Table = {
 };
 
 export interface IGeneratedObject {
-  pack(builder:Builder): Offset
+  pack?(builder:Builder): Offset
 }
 
 export interface IUnpackableObject<T> {
-  unpack(): T
+  unpack?(): T
 }

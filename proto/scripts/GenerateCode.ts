@@ -25,13 +25,30 @@ export function generate_ts_code() {
 
         const clazzes = [];
         const lines = origin.split('\n');
-        for (const line of lines) {
+        for (let i = 0; i < lines.length; i++) {
 
-            const mc = line.match(/export class (\w+) (implements .* )*{/);
+            const mc = lines[i].match(/export class (\w+) (implements .* )*{/);
             if (mc) {
                 clazzes.push(mc[1]);
             }
+
+            let xline = '' + lines[i];
+            if (xline.trimStart().startsWith('pack(')) {
+                xline = xline.replace('pack(', 'pack?(');
+                console.log(`修改生成的ts代码: ${file_path}`);
+                console.log(`修改: ${lines[i]} -> ${xline}`);
+                lines[i] = xline;
+            }
+
+            if (xline.trimStart().startsWith('unpack(')) {
+                xline = xline.replace('unpack(', 'unpack?(');
+                console.log(`修改生成的ts代码: ${file_path}`);
+                console.log(`修改: ${lines[i]} -> ${xline}`);
+                lines[i] = xline;
+            }
         }
+
+        origin = lines.join('\n');
 
         for (const clazz of clazzes) {
             const regAs = new RegExp(`As${clazz}\\(`, 'g');

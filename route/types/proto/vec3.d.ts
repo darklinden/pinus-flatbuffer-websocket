@@ -14,7 +14,7 @@ export declare class Vec3 implements flatbuffers.IUnpackableObject<Vec3T> {
     static addZ(builder: flatbuffers.Builder, z: number): void;
     static end(builder: flatbuffers.Builder): flatbuffers.Offset;
     static create(builder: flatbuffers.Builder, x: number, y: number, z: number): flatbuffers.Offset;
-    unpack(): Vec3T;
+    unpack?(): Vec3T;
     unpackTo(_o: Vec3T): void;
 }
 export declare class Vec3T implements flatbuffers.IGeneratedObject {
@@ -22,5 +22,5 @@ export declare class Vec3T implements flatbuffers.IGeneratedObject {
     y: number;
     z: number;
     constructor(x?: number, y?: number, z?: number);
-    pack(builder: flatbuffers.Builder): flatbuffers.Offset;
+    pack?(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

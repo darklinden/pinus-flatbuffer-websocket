@@ -1,4 +1,6 @@
-#if (!UNITY_EDITOR && UNITY_WEBGL) || TEST_WEBGL
+#if UNITY_WEBGL && (!UNITY_EDITOR || UNITY_WEBSOCKET_WEBGL_IMPL)
+// WebGL平台 且 (不在编辑器下, 或强制指定使用WebGL实现), 使用此实现
+
 using System;
 using XPool;
 
@@ -40,12 +42,16 @@ namespace UnityWebSocket
         internal void AllocateInstance()
         {
             instanceId = WebSocketManager.AllocateInstance(this.Address);
-            Log($"Allocate socket with instanceId: {instanceId}");
+#if UNITY_WEBSOCKET_LOG
+            Log.D("Allocate socket with instanceId", instanceId);
+#endif
             if (this.SubProtocols == null) return;
             foreach (var protocol in this.SubProtocols)
             {
                 if (string.IsNullOrEmpty(protocol)) continue;
-                Log($"Add Sub Protocol {protocol}, with instanceId: {instanceId}");
+#if UNITY_WEBSOCKET_LOG
+                Log.D("Add Sub Protocol", protocol, "with instanceId", instanceId);
+#endif
                 int code = WebSocketManager.WebSocketAddSubProtocol(instanceId, protocol);
                 if (code < 0)
                 {
@@ -57,13 +63,17 @@ namespace UnityWebSocket
 
         ~WebSocket()
         {
-            Log($"Free socket with instanceId: {instanceId}");
+#if UNITY_WEBSOCKET_LOG
+            Log.D("Free socket with instanceId", instanceId);
+#endif
             WebSocketManager.WebSocketFree(instanceId);
         }
 
         public void ConnectAsync()
         {
-            Log($"Connect with instanceId: {instanceId}");
+#if UNITY_WEBSOCKET_LOG
+            Log.D("Connect with instanceId", instanceId);
+#endif
             WebSocketManager.Add(this);
             int code = WebSocketManager.WebSocketConnect(instanceId);
             if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
@@ -71,59 +81,69 @@ namespace UnityWebSocket
 
         public void CloseAsync()
         {
-            Log($"Close with instanceId: {instanceId}");
+#if UNITY_WEBSOCKET_LOG
+            Log.D("Close with instanceId", instanceId);
+#endif
             int code = WebSocketManager.WebSocketClose(instanceId, (int)CloseStatusCode.Normal, "Normal Closure");
             if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
         }
 
-        public void SendAsync(PooledBuffer data)
+        public void SendAsync(XBuffer data)
         {
-            Log($"Send, size: {data.Length}");
+#if UNITY_WEBSOCKET_LOG
+            Log.D("Send, size", data.Length);
+#endif
             int code = WebSocketManager.WebSocketSend(instanceId, data.Bytes, data.Length);
             if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
-            data.Release();
+            data.Dispose();
         }
 
         internal void HandleOnOpen()
         {
-            Log("OnOpen");
-            var evt = WSEventArgs.Create();
+#if UNITY_WEBSOCKET_LOG
+            Log.D("OnOpen");
+#endif
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Open;
             OnOpen?.Invoke(this, evt);
-            evt.Release();
+            evt.Dispose();
         }
 
         internal void HandleOnMessage(byte[] rawData)
         {
-            Log($"OnMessage, size: {rawData.Length}");
-            var evt = WSEventArgs.Create();
+#if UNITY_WEBSOCKET_LOG
+            Log.D("OnMessage, size", rawData.Length);
+#endif
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Message;
-            evt.Data = PooledBuffer.Create();
+            evt.Data = XBuffer.Get();
             evt.Data.Write(rawData, 0, rawData.Length, 0);
             OnMessage?.Invoke(this, evt);
-            evt.Release();
+            evt.Dispose();
         }
 
         internal void HandleOnClose(ushort code, string reason)
         {
-            Log($"OnClose, code: {code}, reason: {reason}");
-            var evt = WSEventArgs.Create();
+#if UNITY_WEBSOCKET_LOG
+            Log.D("OnClose, code:", code, "reason:", reason);
+#endif
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Close;
             evt.CloseCode = code;
             evt.Message = reason;
             OnClose?.Invoke(this, evt);
-            evt.Release();
+            evt.Dispose();
             WebSocketManager.Remove(instanceId);
         }
 
         internal void HandleOnError(string msg)
         {
-            Log("OnError, error: " + msg);
-            var evt = WSEventArgs.Create();
+            Log.E("OnError, error:", msg);
+            var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Error;
             evt.Message = msg;
             OnError?.Invoke(this, evt);
-            evt.Release();
+            evt.Dispose();
         }
 
         internal static string GetErrorMessageFromCode(int errorCode)
@@ -139,14 +159,6 @@ namespace UnityWebSocket
                 case -7: return "Cannot close WebSocket. An invalid code was specified or reason is too long.";
                 default: return $"Unknown error code {errorCode}.";
             }
-        }
-
-        [System.Diagnostics.Conditional("UNITY_WEB_SOCKET_LOG")]
-        static void Log(string msg)
-        {
-            UnityEngine.Debug.Log($"[UnityWebSocket]" +
-                $"[{DateTime.Now.TimeOfDay}]" +
-                $" {msg}");
         }
     }
 }

@@ -66,7 +66,7 @@ static create(builder:flatbuffers.Builder, x:number, y:number, z:number):flatbuf
   return Vec3.end(builder);
 }
 
-unpack(): Vec3T {
+unpack?(): Vec3T {
   return new Vec3T(
     this.x(),
     this.y(),
@@ -90,7 +90,7 @@ constructor(
 ){}
 
 
-pack(builder:flatbuffers.Builder): flatbuffers.Offset {
+pack?(builder:flatbuffers.Builder): flatbuffers.Offset {
   return Vec3.create(builder,
     this.x,
     this.y,

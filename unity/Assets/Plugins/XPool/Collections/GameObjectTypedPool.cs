@@ -1,9 +1,29 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using Proto;
+using UnityEngine;
 
 namespace XPool
 {
     public class GameObjectTypedPool : MonoBehaviour
     {
+        private GameObjectPoolHideType m_hideType = GameObjectPoolHideType.Active;
+        public GameObjectPoolHideType HideType
+        {
+            get
+            {
+                return m_hideType;
+            }
+            set
+            {
+                m_hideType = value;
+                if (Pools == null) return;
+                foreach (var pool in Pools)
+                {
+                    pool.Value.HideType = value;
+                }
+            }
+        }
+
         public static GameObjectTypedPool CreateInstance(Transform parent = null)
         {
             var go = new GameObject("GameObjectTypedPool"); // create a new game object
@@ -23,15 +43,15 @@ namespace XPool
         }
 
         private XList<int> Types { get; set; } // the pool types
-        private XDictionary<int, GameObjectPool> Pools { get; set; } // the pool 
+        private Dictionary<int, GameObjectPool> Pools { get; set; } // the pool 
 
         public void Initialize(int capacity = 1)
         {
             Types = XList<int>.Get(capacity);
-            Pools = XDictionary<int, GameObjectPool>.Get(capacity);
+            Pools = new Dictionary<int, GameObjectPool>(capacity);
         }
 
-        public void SetPrefab<T>(int type, T prefab) where T : Component
+        public void SetPrefab<T>(int type, T prefab, string addr = null) where T : Component
         {
             if (prefab == null)
             {
@@ -39,10 +59,10 @@ namespace XPool
                 return;
             }
 
-            SetPrefab(type, prefab.gameObject);
+            SetPrefab(type, prefab.gameObject, addr);
         }
 
-        public void SetPrefab(int type, GameObject prefab)
+        public void SetPrefab(int type, GameObject prefab, string addr = null)
         {
             if (prefab == null)
             {
@@ -52,15 +72,33 @@ namespace XPool
 
             if (Pools.TryGetValue(type, out var pool))
             {
-                pool.Initialize(prefab);
+                pool.Initialize(prefab, 1, addr);
+                pool.HideType = HideType;
             }
             else
             {
                 pool = GameObjectPool.CreateInstance(transform);
-                pool.Initialize(prefab);
+                pool.Initialize(prefab, 1, addr);
+                pool.HideType = HideType;
                 Pools.Add(type, pool);
                 Types.Add(type);
             }
+        }
+
+        public GameObject GetPrefab(int type)
+        {
+            if (!Pools.TryGetValue(type, out var pool))
+            {
+                Log.E("GameObjectTypedPool.GetPrefab", "Pool Is Not Initialized", type);
+                return null;
+            }
+
+            return pool.Prefab;
+        }
+
+        public bool HasPool(int type)
+        {
+            return Types.Contains(type);
         }
 
         public GameObject Get(int type)
@@ -101,9 +139,21 @@ namespace XPool
 
         public void ReleaseAll()
         {
+            if (Pools == null)
+            {
+                return;
+            }
             foreach (var pool in Pools.Values)
             {
                 pool.ReleaseAll();
+            }
+        }
+
+        public void DeinitializeAll()
+        {
+            foreach (var pool in Pools.Values)
+            {
+                pool.Deinitialize();
             }
         }
     }

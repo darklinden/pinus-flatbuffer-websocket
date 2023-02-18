@@ -91,7 +91,9 @@ namespace XPool
 
         public void Dispose()
         {
+#if XPOOL_LOG
             Log.D("PooledBuffer Dispose");
+#endif
             Clear();
             AnyPool<XBuffer>.Release(this);
         }

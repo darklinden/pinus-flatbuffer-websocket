@@ -113,7 +113,7 @@ static create(builder:flatbuffers.Builder, id:number, nameOffset:flatbuffers.Off
   return MapXDataRow.end(builder);
 }
 
-unpack(): MapXDataRowT {
+unpack?(): MapXDataRowT {
   return new MapXDataRowT(
     this.id(),
     this.name(),
@@ -140,7 +140,7 @@ constructor(
 ){}
 
 
-pack(builder:flatbuffers.Builder): flatbuffers.Offset {
+pack?(builder:flatbuffers.Builder): flatbuffers.Offset {
   const name = (this.name !== null ? builder.createString(this.name!) : 0);
   const camp1 = MapXDataRow.createCamp1Vector(builder, builder.createObjectOffsetList(this.camp1));
   const camp2 = MapXDataRow.createCamp2Vector(builder, builder.createObjectOffsetList(this.camp2));

@@ -4,15 +4,17 @@ using UnityEngine.Profiling;
 
 namespace XPool
 {
-    public class AnyPool<T> where T : class
+    public class AnyPool<T> where T : class, new()
     {
-        private StackCounter StackCounter = StackCounter.Start;
+        private PoolCounter Counter = PoolCounter.Start;
 
-        readonly Stack<T> m_Pool;
+        readonly Queue<T> m_Pool;
+
+        public int PoolLength => m_Pool.Count;
 
         public AnyPool()
         {
-            m_Pool = new Stack<T>(StackCounter.MaxCount);
+            m_Pool = new Queue<T>(Counter.MaxCount);
         }
 
         /// <summary>
@@ -23,11 +25,14 @@ namespace XPool
         {
             if (m_Pool.Count != 0)
             {
-                return m_Pool.Pop();
+                Profiler.BeginSample("AnyPool.Rent Dequeue");
+                var queueT = m_Pool.Dequeue();
+                Profiler.EndSample();
+                return queueT;
             }
 
             Profiler.BeginSample("AnyPool.Rent Alloc");
-            var allocT = Activator.CreateInstance<T>();
+            var allocT = new T();
             Profiler.EndSample();
             return allocT;
         }
@@ -41,11 +46,11 @@ namespace XPool
         {
             if (any == null) return;
 
-            var resized = RuntimeHelpers.BeforeStackPushResize(m_Pool, ref StackCounter);
-            m_Pool.Push(any);
+            var resized = RuntimeHelpers.BeforePoolPushResize(m_Pool, ref Counter);
+            m_Pool.Enqueue(any);
             if (resized)
             {
-                Log.W("AnyPool", typeof(T).Name, "resized to", StackCounter.MaxCount);
+                Log.W("AnyPool", typeof(T).Name, "resized to", Counter.MaxCount);
             }
         }
 
@@ -60,7 +65,7 @@ namespace XPool
             any = null;
         }
 
-        private static readonly AnyPool<T> Shared = new AnyPool<T>();
+        public static readonly AnyPool<T> Shared = new AnyPool<T>();
 
         public static T Get()
         {
@@ -71,5 +76,15 @@ namespace XPool
         {
             Shared.Return(any);
         }
+    }
+
+    public abstract class XAny<T> : IDisposable where T : XAny<T>, new()
+    {
+        public static T Get()
+        {
+            return AnyPool<T>.Get();
+        }
+
+        public virtual void Dispose() { AnyPool<T>.Release(this as T); }
     }
 }

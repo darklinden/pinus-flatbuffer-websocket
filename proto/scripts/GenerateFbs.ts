@@ -36,10 +36,20 @@ function csv_to_fbs_enum(file_path: string, name: string): string {
 
     let rows = CsvUtil.loadDataSync(file_path);
 
-    let enum_str = `enum ${name} : byte {\n`;
+    let enum_value_type = 'byte';
+    if (rows[0][0].startsWith('#int')) {
+        enum_value_type = 'int32';
+    }
+
+    let enum_str = `enum ${name} : ${enum_value_type} {\n`;
     for (let row of rows) {
         if (row[0].startsWith('#')) {
             // 跳过表头和注释
+            continue;
+        }
+
+        if (row.length <= 0 || (row.length == 1 && row[0] === '')) {
+            // 跳过空行
             continue;
         }
 
@@ -63,6 +73,11 @@ function csv_to_fbs_struct(file_path: string, name: string): [string, string[]] 
     for (let row of rows) {
         if (row[0].startsWith('#')) {
             // 跳过表头和注释
+            continue;
+        }
+
+        if (row.length <= 0 || (row.length == 1 && row[0] === '')) {
+            // 跳过空行
             continue;
         }
 

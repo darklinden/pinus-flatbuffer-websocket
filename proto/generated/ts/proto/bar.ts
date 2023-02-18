@@ -46,7 +46,7 @@ static create(builder:flatbuffers.Builder, bar:bigint):flatbuffers.Offset {
   return Bar.end(builder);
 }
 
-unpack(): BarT {
+unpack?(): BarT {
   return new BarT(
     this.bar()
   );
@@ -64,7 +64,7 @@ constructor(
 ){}
 
 
-pack(builder:flatbuffers.Builder): flatbuffers.Offset {
+pack?(builder:flatbuffers.Builder): flatbuffers.Offset {
   return Bar.create(builder,
     this.bar
   );

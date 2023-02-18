@@ -181,6 +181,12 @@ function csv_to_table_struct(
             // 跳过表头和注释
             continue;
         }
+
+        if (row.length <= 0 || (row.length == 1 && row[0] === '')) {
+            // 跳过空行
+            continue;
+        }
+
         if (!header) {
             header = row;
         }
@@ -277,7 +283,7 @@ export function parse_json_field_enum_type(struct: JsonFieldStruct, str: string)
         return struct.enumVK[parseInt(str)];
     }
     else {
-        throw new Error('未知枚举值: ' + struct.typeStr + ' - ' + str);
+        throw new Error('未知枚举值: ' + struct.typeStr + ' - ' + JSON.stringify(struct.enumKV) + ' - [' + str + ']');
     }
 }
 
@@ -285,11 +291,11 @@ export function parse_json_field_struct_or_table_type(struct: JsonFieldStruct, s
     let obj: any = {};
     let items = str.split('#');
 
-    if (items.length != struct.subStructs.length) {
+    if (items.length < struct.subStructs.length) {
         throw new Error('字段数量不匹配: ' + struct.typeStr + ' - ' + str);
     }
 
-    for (let i = 0; i < items.length; i++) {
+    for (let i = 0; i < struct.subStructs.length; i++) {
         let item = items[i];
         const [key, value] = parse_json_field(struct.subStructs[i], item);
         if (value != null)
@@ -315,7 +321,10 @@ export function parse_json_field(struct: JsonFieldStruct, str: string): [string,
         }
         else {
             if (str == null || str.trim() == '') {
-                return [struct.name, 0];
+                if (struct.typeStr != 'string')
+                    return [struct.name, 0];
+                else
+                    return [struct.name, ''];
             }
             value = parse_json_field_base_type(struct.typeStr, str);
         }

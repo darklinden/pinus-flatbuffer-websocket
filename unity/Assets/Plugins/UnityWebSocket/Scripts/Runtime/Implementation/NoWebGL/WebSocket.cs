@@ -1,4 +1,6 @@
-﻿#if (UNITY_EDITOR || !UNITY_WEBGL) && !TEST_WEBGL
+﻿#if !UNITY_WEBGL || (UNITY_EDITOR && !UNITY_WEBSOCKET_WEBGL_IMPL) 
+// 非WebGL平台使用此实现 或 编辑器下, 且未指定使用WebGL实现, 使用此实现
+
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -65,6 +67,10 @@ namespace UnityWebSocket
 
         public async void ConnectAsync()
         {
+            System.Net.ServicePointManager.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+            // System.Net.ServicePointManager.ServerCertificateValidationCallback =
+            //  ClientWebSocketOptions.RemoteCertificateValidationCallback
+
             WebSocketManager.Instance.Add(this);
 
             if (socket != null)
@@ -78,7 +84,9 @@ namespace UnityWebSocket
                 foreach (var protocol in this.SubProtocols)
                 {
                     if (string.IsNullOrEmpty(protocol)) continue;
+#if UNITY_WEBSOCKET_LOG
                     Log.D($"Add Sub Protocol {protocol}");
+#endif
                     socket.Options.AddSubProtocol(protocol);
                 }
             }
@@ -94,7 +102,9 @@ namespace UnityWebSocket
 
         private async Task ConnectTask()
         {
+#if UNITY_WEBSOCKET_LOG
             Log.D("Connect Task Begin ...");
+#endif
 
             try
             {
@@ -111,7 +121,9 @@ namespace UnityWebSocket
 
             HandleOpen();
 
+#if UNITY_WEBSOCKET_LOG
             Log.D("Connect Task End !");
+#endif
 
             await ReceiveTask();
         }
@@ -155,14 +167,17 @@ namespace UnityWebSocket
 
         private async void SendTask()
         {
+#if UNITY_WEBSOCKET_LOG
             Log.D("Send Task Begin ...");
+#endif
 
             try
             {
                 while (sendQueue.Count > 0 && isOpening)
                 {
+#if UNITY_WEBSOCKET_LOG
                     Log.D("SendTask Dequeue");
-
+#endif
                     SendTaskStruct st;
                     lock (sendQueueLock)
                     {
@@ -170,13 +185,19 @@ namespace UnityWebSocket
                     }
                     if (st.Type == WebSocketMessageType.Close)
                     {
-                        Log.D($"Close Send Begin ...");
+#if UNITY_WEBSOCKET_LOG
+                        Log.D("Close Send Begin ...");
+#endif
                         await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Normal Closure", CancellationToken.None);
-                        Log.D($"Close Send End !");
+#if UNITY_WEBSOCKET_LOG
+                        Log.D("Close Send End !");
+#endif
                     }
                     else
                     {
+#if UNITY_WEBSOCKET_LOG
                         Log.D("Send, type:", st.Type, "len:", st.Buffer.Length, "size:", st.Buffer.Bytes, "queue left:", sendQueue.Count);
+#endif
                         await socket.SendAsync(new ArraySegment<byte>(st.Buffer.Bytes, 0, st.Buffer.Length), st.Type, true, CancellationToken.None);
                         st.Buffer.Dispose();
                         st.Buffer = null;
@@ -192,12 +213,16 @@ namespace UnityWebSocket
                 isSendTaskRunning = false;
             }
 
+#if UNITY_WEBSOCKET_LOG
             Log.D("Send Task End !");
+#endif
         }
 
         private async Task ReceiveTask()
         {
+#if UNITY_WEBSOCKET_LOG
             Log.D("Receive Task Begin ...");
+#endif
 
             string closeReason = "";
             ushort closeCode = 0;
@@ -246,7 +271,9 @@ namespace UnityWebSocket
             HandleClose(closeCode, closeReason);
             SocketDispose();
 
+#if UNITY_WEBSOCKET_LOG
             Log.D("Receive Task End !");
+#endif
         }
 
         private void SocketDispose()
@@ -258,7 +285,9 @@ namespace UnityWebSocket
 
         private void HandleOpen()
         {
+#if UNITY_WEBSOCKET_LOG
             Log.D("OnOpen");
+#endif
             var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Open;
             HandleEventSync(evt);
@@ -266,7 +295,9 @@ namespace UnityWebSocket
 
         private void HandleMessage(XPool.XBuffer buffer)
         {
+#if UNITY_WEBSOCKET_LOG
             Log.D("OnMessage, size:", buffer.Bytes);
+#endif
             var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Message;
             evt.Data = buffer;
@@ -275,7 +306,9 @@ namespace UnityWebSocket
 
         private void HandleClose(ushort code, string reason)
         {
+#if UNITY_WEBSOCKET_LOG
             Log.D("OnClose, code:", code, "reason:", reason);
+#endif
             var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Close;
             evt.CloseCode = code;
@@ -334,4 +367,5 @@ namespace UnityWebSocket
         }
     }
 }
+
 #endif

@@ -10,11 +10,11 @@ export declare class Foo implements flatbuffers.IUnpackableObject<FooT> {
     static addFoo(builder: flatbuffers.Builder, foo: bigint): void;
     static end(builder: flatbuffers.Builder): flatbuffers.Offset;
     static create(builder: flatbuffers.Builder, foo: bigint): flatbuffers.Offset;
-    unpack(): FooT;
+    unpack?(): FooT;
     unpackTo(_o: FooT): void;
 }
 export declare class FooT implements flatbuffers.IGeneratedObject {
     foo: bigint;
     constructor(foo?: bigint);
-    pack(builder: flatbuffers.Builder): flatbuffers.Offset;
+    pack?(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

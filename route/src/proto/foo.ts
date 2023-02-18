@@ -46,7 +46,7 @@ static create(builder:flatbuffers.Builder, foo:bigint):flatbuffers.Offset {
   return Foo.end(builder);
 }
 
-unpack(): FooT {
+unpack?(): FooT {
   return new FooT(
     this.foo()
   );
@@ -64,7 +64,7 @@ constructor(
 ){}
 
 
-pack(builder:flatbuffers.Builder): flatbuffers.Offset {
+pack?(builder:flatbuffers.Builder): flatbuffers.Offset {
   return Foo.create(builder,
     this.foo
   );

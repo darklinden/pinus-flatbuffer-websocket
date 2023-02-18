@@ -9,16 +9,16 @@ namespace XPool
     {
         public static readonly ArrayPool<T> Shared = new ArrayPool<T>();
 
-        readonly Stack<T[]>[] m_Pool;
-        readonly StackCounter[] m_StackCounters;
+        readonly Queue<T[]>[] m_Pool;
+        readonly PoolCounter[] m_StackCounters;
 
         public ArrayPool()
         {
-            m_Pool = new Stack<T[]>[18];
-            m_StackCounters = new StackCounter[18];
+            m_Pool = new Queue<T[]>[18];
+            m_StackCounters = new PoolCounter[18];
             for (int i = 0; i < m_Pool.Length; i++)
             {
-                m_StackCounters[i] = StackCounter.Start;
+                m_StackCounters[i] = PoolCounter.Start;
             }
         }
 
@@ -43,20 +43,24 @@ namespace XPool
                 if (m_Pool[poolIndex] == null)
                 {
                     Profiler.BeginSample("ArrayPool.Rent Alloc Stack");
-                    m_Pool[poolIndex] = new Stack<T[]>(m_StackCounters[poolIndex].MaxCount);
+                    m_Pool[poolIndex] = new Queue<T[]>(m_StackCounters[poolIndex].MaxCount);
                     Profiler.EndSample();
                 }
 
-                Stack<T[]> pool = m_Pool[poolIndex];
+                Queue<T[]> pool = m_Pool[poolIndex];
 
                 if (pool.Count != 0)
                 {
-                    // Log.D("ArrayPool.Rent Use Pool", pool.Count);
-                    return pool.Pop();
+#if XPOOL_LOG
+                    Log.D("ArrayPool.Rent Use Pool", pool.Count);
+#endif
+                    return pool.Dequeue();
                 }
             }
 
-            // Log.D("ArrayPool.Rent Alloc");
+#if XPOOL_LOG
+            Log.D("ArrayPool.Rent Alloc");
+#endif
             Profiler.BeginSample("ArrayPool.Rent Alloc");
             var allocArr = new T[size];
             Profiler.EndSample();
@@ -94,19 +98,19 @@ namespace XPool
             if (m_Pool[poolIndex] == null)
             {
                 Profiler.BeginSample("ArrayPool.Return Alloc Stack");
-                m_Pool[poolIndex] = new Stack<T[]>(m_StackCounters[poolIndex].MaxCount);
+                m_Pool[poolIndex] = new Queue<T[]>(m_StackCounters[poolIndex].MaxCount);
                 Profiler.EndSample();
             }
 
-            Stack<T[]> pool = m_Pool[poolIndex];
+            Queue<T[]> pool = m_Pool[poolIndex];
 
             if (clearArray)
             {
                 Array.Clear(array, 0, array.Length);
             }
 
-            var resized = RuntimeHelpers.BeforeStackPushResize(pool, ref m_StackCounters[poolIndex]);
-            pool.Push(array);
+            var resized = RuntimeHelpers.BeforePoolPushResize(pool, ref m_StackCounters[poolIndex]);
+            pool.Enqueue(array);
 
             if (resized)
             {
@@ -137,7 +141,7 @@ namespace XPool
                     var bucket = m_Pool[i];
                     for (int k = bucket.Count - keep; i > 0; k--)
                     {
-                        bucket.Pop();
+                        bucket.Dequeue();
                     }
                 }
             }

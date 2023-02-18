@@ -14,7 +14,7 @@ fs.readdirSync(src_folder).forEach(file => {
     const file_path = path.join(src_folder, file);
     if (file_path.endsWith('.ts')) {
         if (const_route_files.indexOf(file) < 0) {
-            console.log('delete ' + file_path);
+            // console.log('delete ' + file_path);
             fs.unlink(file_path, function (err) {
                 if (err) console.log('ERROR: ' + err);
             });
@@ -62,7 +62,7 @@ function walkDirSync(root, relative, callback) {
 
 walkDirSync(server_app_folder, '', (root, file) => {
     if (file.endsWith('.ts')) {
-        console.log(file);
+        // console.log(file);
         const file_path = path.join(server_app_folder, file);
         var original = fs.readFileSync(file_path, { encoding: 'utf8' });
 

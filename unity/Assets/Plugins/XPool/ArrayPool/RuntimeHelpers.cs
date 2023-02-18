@@ -5,10 +5,10 @@ namespace XPool
 {
     internal static class RuntimeHelpers
     {
-        public static bool BeforeStackPushResize<T>(System.Collections.Generic.Stack<T> stack, ref StackCounter counter)
+        public static bool BeforePoolPushResize<T>(System.Collections.Generic.Queue<T> pool, ref PoolCounter counter)
         {
             bool resized = false;
-            if (stack.Count + 1 > counter.MaxCount)
+            if (pool.Count + 1 > counter.MaxCount)
             {
                 counter.Power++;
                 counter.MaxCount = 1 << counter.Power;

@@ -125,8 +125,10 @@ namespace PinusUnity
             ProcessPackage(data);
 
             // new package arrived, update the heartbeat timeout
-            // Log.D("OnRecv RenewHeartbeatTimeout");
-            // RenewHeartbeatTimeout();
+#if PINUS_LOG
+            Log.D("OnRecv RenewHeartbeatTimeout");
+#endif
+            RenewHeartbeatTimeout();
         }
 
         public void OnError(string err)
@@ -256,7 +258,9 @@ namespace PinusUnity
                 if (HeartbeatPassed > HeartbeatInterval)
                 {
                     Client.SendBuffer(Package.SimplePack(PackageType.Heartbeat));
+#if PINUS_LOG
                     Log.D("SendHeartbeat RenewHeartbeatTimeout");
+#endif
                     RenewHeartbeatTimeout();
                 }
                 return;
@@ -264,7 +268,9 @@ namespace PinusUnity
 
             if (HeartbeatPassed > HeartbeatTimeout)
             {
+#if PINUS_LOG
                 Log.D("Pinus Server Heartbeat Timeout");
+#endif
                 if (ReconnectAttempt < MaxReconnectAttempts)
                 {
                     Reconnecting = true;
@@ -311,7 +317,10 @@ namespace PinusUnity
                 }
             }
 
+#if PINUS_LOG
             Log.D("Pinus Recv", routeStr, "Data Length", bodyLength);
+#endif
+
             var bb = ByteBuffer.Get();
             bb.Resize(bytes.Length);
             bb.CopyBytes(bytes, bodyOffset, bodyLength);
@@ -334,7 +343,9 @@ namespace PinusUnity
         void OnKick(byte[] data, int offset, int length)
         {
             var d = Protocol.StrDecode(data, offset, length);
+#if PINUS_LOG
             Log.D("Pinus Network OnKick", d);
+#endif
 
             EventBus.Instance.BeenKicked(Url);
             Client.Close();
@@ -437,7 +448,9 @@ namespace PinusUnity
                 Log.E("Pinus Network Notify Error: Empty Route");
                 return;
             }
+#if PINUS_LOG
             Log.D("Pinus Network SendMessage", "route", route, "requestId", requestId, "data length", msg.Length - msg.Position);
+#endif
             var routeCode = m_RouteMap[route];
             SendMessage(requestId, routeCode, msg);
         }

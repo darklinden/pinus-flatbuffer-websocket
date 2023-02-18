@@ -1,8 +1,7 @@
-﻿// #define ENABLE_LOG
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.Profiling;
 
 namespace XPool
 {
@@ -59,15 +58,17 @@ namespace XPool
         {
             get
             {
-#if ENABLE_LOG
-#if UNITY_EDITOR && DEBUG
+#if XPOOL_LOG
                 if (index >= m_Count)
                 {
                     Log.W("XList.this[int index]", "index >= m_Count");
                 }
 #endif
-                Log.AssertIsTrue(m_Array != null && index >= 0 && index < m_Array.Length, "XList", typeof(T).Name, "get_Item Index Out Of Range", index, m_Count);
-#endif
+
+                if (!(m_Array != null && index >= 0 && index < m_Array.Length))
+                {
+                    Log.E("XList", typeof(T).Name, "get_Item Index Out Of Range", index, m_Count);
+                }
                 return m_Array[index];
             }
             set
@@ -75,11 +76,11 @@ namespace XPool
                 // resize if necessary
                 if (index >= m_Array.Length)
                 {
-#if ENABLE_LOG && UNITY_EDITOR && DEBUG
+#if XPOOL_LOG
                     var oldLen = m_Array == null ? 0 : m_Array.Length;
 #endif
                     ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, index + 1, ArrayPool<T>.Shared);
-#if ENABLE_LOG && UNITY_EDITOR && DEBUG
+#if XPOOL_LOG
                     Log.W("XList", typeof(T).Name, "set_Item Index Out Of Range Trigger Resize", index, oldLen, "->", m_Array.Length);
 #endif
                 }
@@ -94,41 +95,7 @@ namespace XPool
         /// </summary>
         public bool Contains(T item)
         {
-            if (item == null)
-            {
-                for (int i = 0; i < m_Count; i++)
-                {
-                    if (item == null)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            else if (item is IEquatable<T> ei)
-            {
-                var comparer = EqualityComparer<T>.Default;
-                for (int i = 0; i < m_Count; i++)
-                {
-                    if (ei.Equals(m_Array[i]))
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            else
-            {
-                var comparer = EqualityComparer<T>.Default;
-                for (int i = 0; i < m_Count; i++)
-                {
-                    if (comparer.Equals(m_Array[i], item))
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
+            return IndexOf(item) != -1;
         }
 
         /// <summary>
@@ -359,9 +326,10 @@ namespace XPool
         /// </summary>
         public void Clear()
         {
-            ArrayPool<T>.Shared.Return(m_Array, !RuntimeHelpers.IsWellKnownNoReferenceContainsType<T>());
-
-            m_Array = null;
+            if (m_Array != null)
+            {
+                System.Array.Clear(m_Array, 0, m_Count);
+            }
             m_Count = 0;
         }
 
@@ -848,7 +816,10 @@ namespace XPool
 
         public void Dispose()
         {
-            Clear();
+            ArrayPool<T>.Shared.Return(m_Array, !RuntimeHelpers.IsWellKnownNoReferenceContainsType<T>());
+
+            m_Array = null;
+            m_Count = 0;
             AnyPool<XList<T>>.Release(this);
         }
     }

@@ -72,7 +72,7 @@ static create(builder:flatbuffers.Builder, rowsOffset:flatbuffers.Offset):flatbu
   return MapXData.end(builder);
 }
 
-unpack(): MapXDataT {
+unpack?(): MapXDataT {
   return new MapXDataT(
     this.bb!.createObjList<MapXDataRow, MapXDataRowT>(this.rows.bind(this), this.rowsLength())
   );
@@ -90,7 +90,7 @@ constructor(
 ){}
 
 
-pack(builder:flatbuffers.Builder): flatbuffers.Offset {
+pack?(builder:flatbuffers.Builder): flatbuffers.Offset {
   const rows = MapXData.createRowsVector(builder, builder.createObjectOffsetList(this.rows));
 
   return MapXData.create(builder,

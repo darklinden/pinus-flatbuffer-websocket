@@ -1,3 +1,4 @@
+using System.Collections;
 using System;
 using PinusUnity;
 using UnityEngine;
@@ -7,8 +8,9 @@ using XPool;
 
 public class NetworkTest : MonoBehaviour
 {
-    private void OnEnable()
+    private IEnumerator Start()
     {
+
         // test array pool
         var arrayPool = ArrayPool<byte>.Shared;
         var list = XList<byte[]>.Get(20);
@@ -58,10 +60,13 @@ public class NetworkTest : MonoBehaviour
             arrayPool.Return(list[i]);
         }
 
-        // configs 
-        Configs.Instance.Init();
-        Configs.Instance.LogConfigs();
+        // test configs
+        Configs.Instance.Initialize();
+        yield return Configs.Instance.RoutineLoadStart();
 
+        Log.D("Configs.Instance.MapXData.DataLoaded", Configs.Instance.MapXData.GetData(0).Value.Name);
+
+        // test pinus
         Pinus.EventBus.OnHandshakeOver += OnHandshakeOver;
         EventDispatcher.AddListener<ByteBuffer>(Structs.FooBar.PushBar.route, OnPushBar, this);
         EventDispatcher.AddListener<ByteBuffer>(Structs.FooBar.CallFoo.route, OnCallFooResp, this);

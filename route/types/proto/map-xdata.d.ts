@@ -16,11 +16,11 @@ export declare class MapXData implements flatbuffers.IUnpackableObject<MapXDataT
     static finishMapXDataBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
     static finishSizePrefixedMapXDataBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset): void;
     static create(builder: flatbuffers.Builder, rowsOffset: flatbuffers.Offset): flatbuffers.Offset;
-    unpack(): MapXDataT;
+    unpack?(): MapXDataT;
     unpackTo(_o: MapXDataT): void;
 }
 export declare class MapXDataT implements flatbuffers.IGeneratedObject {
     rows: (MapXDataRowT)[];
     constructor(rows?: (MapXDataRowT)[]);
-    pack(builder: flatbuffers.Builder): flatbuffers.Offset;
+    pack?(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

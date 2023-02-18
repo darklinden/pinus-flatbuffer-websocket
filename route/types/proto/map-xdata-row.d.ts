@@ -24,7 +24,7 @@ export declare class MapXDataRow implements flatbuffers.IUnpackableObject<MapXDa
     static startCamp2Vector(builder: flatbuffers.Builder, numElems: number): void;
     static end(builder: flatbuffers.Builder): flatbuffers.Offset;
     static create(builder: flatbuffers.Builder, id: number, nameOffset: flatbuffers.Offset, camp1Offset: flatbuffers.Offset, camp2Offset: flatbuffers.Offset): flatbuffers.Offset;
-    unpack(): MapXDataRowT;
+    unpack?(): MapXDataRowT;
     unpackTo(_o: MapXDataRowT): void;
 }
 export declare class MapXDataRowT implements flatbuffers.IGeneratedObject {
@@ -33,5 +33,5 @@ export declare class MapXDataRowT implements flatbuffers.IGeneratedObject {
     camp1: (Vec3T)[];
     camp2: (Vec3T)[];
     constructor(id?: number, name?: string | Uint8Array | null, camp1?: (Vec3T)[], camp2?: (Vec3T)[]);
-    pack(builder: flatbuffers.Builder): flatbuffers.Offset;
+    pack?(builder: flatbuffers.Builder): flatbuffers.Offset;
 }

@@ -39,7 +39,9 @@ namespace UnityWebSocket
 
         public void Dispose()
         {
+#if UNITY_WEBSOCKET_LOG
             Log.D("WSEventArgs Dispose");
+#endif
             if (Data != null)
             {
                 Data.Dispose();
