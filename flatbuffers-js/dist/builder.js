@@ -156,12 +156,12 @@ class Builder {
     }
     nested(obj) {
         if (obj != this.offset()) {
-            throw new Error('FlatBuffers: struct must be serialized inline.');
+            throw new TypeError('FlatBuffers: struct must be serialized inline.');
         }
     }
     notNested() {
         if (this.isNested) {
-            throw new Error('FlatBuffers: object serialization must not be nested.');
+            throw new TypeError('FlatBuffers: object serialization must not be nested.');
         }
     }
     slot(voffset) {
@@ -246,7 +246,7 @@ class Builder {
             this.prep(this.minalign, constants_js_1.SIZEOF_INT +
                 constants_js_1.FILE_IDENTIFIER_LENGTH + size_prefix);
             if (file_identifier.length != constants_js_1.FILE_IDENTIFIER_LENGTH) {
-                throw new Error('FlatBuffers: file identifier must be length ' +
+                throw new TypeError('FlatBuffers: file identifier must be length ' +
                     constants_js_1.FILE_IDENTIFIER_LENGTH);
             }
             for (let i = constants_js_1.FILE_IDENTIFIER_LENGTH - 1; i >= 0; i--) {
@@ -266,9 +266,10 @@ class Builder {
     requiredField(table, field) {
         const table_start = this.bb.capacity() - table;
         const vtable_start = table_start - this.bb.readInt32(table_start);
-        const ok = this.bb.readInt16(vtable_start + field) != 0;
+        const ok = field < this.bb.readInt16(vtable_start) &&
+            this.bb.readInt16(vtable_start + field) != 0;
         if (!ok) {
-            throw new Error('FlatBuffers: field ' + field + ' must be set');
+            throw new TypeError('FlatBuffers: field ' + field + ' must be set');
         }
     }
     startVector(elem_size, num_elems, alignment) {
@@ -333,7 +334,7 @@ class Builder {
                 ret.push(this.createObjectOffset(val));
             }
             else {
-                throw new Error('FlatBuffers: Argument for createObjectOffsetList cannot contain null.');
+                throw new TypeError('FlatBuffers: Argument for createObjectOffsetList cannot contain null.');
             }
         }
         return ret;

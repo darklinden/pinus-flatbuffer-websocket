@@ -1,7 +1,7 @@
 import { ByteBuffer } from './byte-buffer.js';
 import { Builder } from './builder.js';
-export declare type Offset = number;
-export declare type Table = {
+export type Offset = number;
+export type Table = {
     bb: ByteBuffer;
     bb_pos: number;
 };

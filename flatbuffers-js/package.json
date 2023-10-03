@@ -5,11 +5,11 @@
     "description": "",
     "exports": {
         ".": {
-            "require": "./dist/index.js"
+            "require": "./dist/flatbuffers.js"
         }
     },
-    "main": "./dist/index.js",
-    "types": "./types/index.d.ts",
+    "main": "./dist/flatbuffers.js",
+    "types": "./types/flatbuffers.d.ts",
     "author": "",
     "dependencies": {},
     "scripts": {
@@ -17,6 +17,9 @@
         "build": "rm -rf ./dist && rm -rf ./types && tsc"
     },
     "devDependencies": {
+        "gulp": "^4.0.2",
+        "gulp-concat": "^2.6.1",
+        "rollup": "^3.29.4",
         "typescript": "^4.7.4"
     }
 }
