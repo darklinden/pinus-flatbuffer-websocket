@@ -1,0 +1,124 @@
+version: "3"
+services:
+
+  redis:
+    container_name: "redis"
+    image: redis:7.0.9-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/data:/data
+      - type: bind
+        source: ./redis/redis.conf
+        target: /etc/redis/redis.conf
+    networks:
+      app_net:
+        ipv4_address: 10.10.10.10
+    logging:
+      driver: "local"
+      options:
+          max-file: 5
+          max-size: 10m
+
+  postgresql:
+    container_name: "postgresql"
+    image: postgres:14.7-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123456
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    networks:
+      app_net:
+        ipv4_address: 10.10.10.11
+    logging:
+      driver: "local"
+      options:
+          max-file: 5
+          max-size: 10m
+          
+  http-server:
+    container_name: "http-server"
+    image: rust-http
+    restart: always
+    env_file:
+      - config.env
+    command: app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - postgresql
+    networks:
+      app_net:
+        ipv4_address: 10.10.10.13
+    logging:
+      driver: "local"
+      options:
+          max-file: 5
+          max-size: 10m
+
+  ws-server:
+    container_name: "ws-server"
+    image: node:16-alpine3.16
+    restart: always
+    working_dir: /home/node/app
+    env_file:
+      - config.env
+    command: sh /home/node/app/start.sh
+    volumes:
+      - ./ws-server:/home/node/app
+    ports:
+      - "3010:3010"
+      - "3011:3011"
+    depends_on:
+      - redis
+      - postgresql
+    networks:
+      app_net:
+        ipv4_address: 10.10.10.14
+    logging:
+      driver: "local"
+      options:
+          max-file: 5
+          max-size: 10m
+
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - type: bind
+        source: ./nginx/nginx.conf
+        target: /etc/nginx/nginx.conf
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    expose:
+      - "8080"
+      - "8081"
+    restart: always
+    depends_on:
+      - http-server
+      - ws-server
+    networks:
+      app_net:
+        ipv4_address: 10.10.10.15
+    logging:
+      driver: "local"
+      options:
+          max-file: 5
+          max-size: 10m
+          
+networks:
+  app_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.10.0/8

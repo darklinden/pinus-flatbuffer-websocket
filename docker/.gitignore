@@ -1,0 +1,11 @@
+.DS_Store
+*.key
+*.crt
+*.key.pub
+*.tar.gz
+
+/redis/data
+/pgdata
+*.log
+
+*.dump
