@@ -16,8 +16,9 @@ export function generate_bytes(fbs_to_json: [string, string][]): [string, string
         const fbs_path = item[0];
         const json_path = item[1];
 
-        let bytes_path = path.join(path.dirname(fbs_path), path.basename(fbs_path, '.fbs') + '.bin');
-        bytes_path = path.join(paths.bytes, bytes_path.slice(paths.fbs.length + 1));
+        let bytes_path = path.join(path.dirname(json_path), path.basename(json_path, '.json') + '.bin');
+        bytes_path = path.join(paths.bytes, bytes_path.slice(paths.json.length + 1));
+
         fs.mkdirSync(path.dirname(bytes_path), { recursive: true });
 
         console.log(`使用 ${path.basename(fbs_path)} 导出 ${path.basename(json_path)} 数据 ${bytes_path}`);

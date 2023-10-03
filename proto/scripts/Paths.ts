@@ -3,6 +3,7 @@ export class Paths {
     public csv: string = ''
     public fbs: string = ''
     public csharp: string = ''
+    public rust: string = ''
     public ts: string = ''
     public json: string = ''
     public bytes: string = ''

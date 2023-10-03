@@ -5,27 +5,45 @@ import { paths, IPathStruct } from "./Paths"
 import { CsvUtil } from "./CsvUtil";
 import { BaseDataTypes } from "./BaseDataTypes";
 import { walkDirSync } from './WalkDirSync';
+import { exit } from 'process';
 
 function resolve_csv_fbs_path(file_path: string): [string, string] {
     let name = path.basename(file_path).split('.')[0];
+    let fbs_name = null;
 
     // XXXEnum.csv -> XXX.fbs
     if (name.endsWith('Enum')) {
         name = name.slice(0, -4);
+        fbs_name = name;
     }
     // XXXStruct.csv -> XXX.fbs
     else if (name.endsWith('Struct')) {
         name = name.slice(0, -6);
+        fbs_name = name;
     }
     // XXXTable.csv -> XXX.fbs
     else if (name.endsWith('Table')) {
         name = name.slice(0, -5);
+        fbs_name = name;
+
+        // 检查拆表
+        if (fbs_name.indexOf('@') != -1) {
+            fbs_name = fbs_name.split('@')[0];
+        }
+
+        // 检查复用类
+        const content = fs.readFileSync(file_path, 'utf-8');
+        const lines = content.split('\n');
+        if (lines[0].startsWith('#class')) {
+            fbs_name = lines[0].split(' ')[1];
+        }
     }
 
+    name = name.trim();
+    fbs_name = fbs_name.trim();
     let folder = path.dirname(file_path);
-    let fbs_path = path.join(folder, name + '.fbs');
-    fbs_path = path.join(
-        paths.fbs, fbs_path.slice(paths.csv.length + 1));
+    let relative_folder = folder.slice(paths.csv.length + 1);
+    let fbs_path = path.join(paths.fbs, relative_folder, fbs_name + '.fbs');
 
     return [name, fbs_path];
 }
@@ -48,7 +66,7 @@ function csv_to_fbs_enum(file_path: string, name: string): string {
             continue;
         }
 
-        if (row.length <= 0 || (row.length == 1 && row[0] === '')) {
+        if (row.length <= 0 || (row.length > 0 && row[0].trim().length == 0)) {
             // 跳过空行
             continue;
         }
@@ -96,19 +114,30 @@ function csv_to_fbs_struct(file_path: string, name: string): [string, string[]] 
     return [table_str, includes];
 }
 
-function csv_to_fbs_table(file_path: string, name: string): [string, string[]] {
+function csv_to_fbs_table(file_path: string, name: string): [string, string, string[]] {
 
     console.log('\n导出 csv 文件为表', file_path, name);
 
     let rows = CsvUtil.loadDataSync(file_path);
     let header: string[];
+    let reuse_class = null;
     for (const row of rows) {
-        if (row[0].startsWith('#')) {
+        if (row[0].startsWith('#class')) {
+            reuse_class = row[0].split(' ')[1];
+            continue;
+        }
+        else if (row[0].startsWith('#')) {
             // 跳过表头和注释
             continue;
         }
         header = row;
         break;
+    }
+
+    if (reuse_class && reuse_class.length > 0) {
+        // 重用类 #class XXX
+        name = reuse_class;
+        name = name.trim();
     }
 
     let includes: string[] = [];
@@ -127,24 +156,28 @@ function csv_to_fbs_table(file_path: string, name: string): [string, string[]] {
 
         try {
 
-            console.log('读取行', item);
+            // console.log('读取行', item);
 
-            const tmp = item.split('|')
-            const comment = tmp[0]
-            const data = tmp[1]
-            const variable = data.split(':')
-            const variable_name = variable[0]
-            const data_type = variable[1]
+            const tmp = item.split('|');
+            const comment = tmp[0];
+            const data = tmp[1];
+            const variable = data.split(':');
+            const variable_name = variable[0];
+            let data_type = variable[1];
+            data_type = data_type.trim();
 
             let var_type = data_type.trim();
             // 如果是数组类型，取内部类型
             if (var_type.startsWith('[') && var_type.endsWith(']'))
                 var_type = var_type.slice(1, -1);
             if (BaseDataTypes.indexOf(var_type) == -1 && includes.indexOf(var_type) == -1) {
-                console.log('生成引用', var_type);
+                // console.log('生成引用', var_type);
                 includes.push(var_type);
             }
-            table_str += `    ${variable_name}:${data_type}; // ${comment} \n`;
+
+            // 重用类 #class XXX 不生成注释
+            table_str += `    ${variable_name}:${data_type};\n`;
+
             console.log('生成字段', variable_name, data_type, comment);
 
         } catch (error) {
@@ -160,7 +193,7 @@ function csv_to_fbs_table(file_path: string, name: string): [string, string[]] {
 
     table_str += `root_type ${name};\n`;
 
-    return [table_str, includes];
+    return [name, table_str, includes];
 }
 
 export function get_fbs_path(
@@ -224,6 +257,10 @@ export function generate_fbs(): {
 
         // 忽略正在编辑时的临时文件
         if (path.basename(csv_path).startsWith('~$'))
+            continue
+
+        // 忽略注释文件
+        if (path.basename(csv_path).startsWith('#'))
             continue
 
         // 生成枚举 fbs, 枚举文件必须为枚举名 + Enum
@@ -299,10 +336,21 @@ export function generate_fbs(): {
     }
 
     // 生成表 fbs
-    for (const name in tables) {
+    for (let name in tables) {
         const p = tables[name];
 
-        const [table_, includes] = csv_to_fbs_table(p.csv, name);
+        // 是否为拆表
+        if (name.indexOf('@') != -1) {
+            console.log(`表 ${name} 为拆表 ${name.split('@')[0]} 的 分表 ${name.split('@')[1]}`);
+            name = name.split('@')[0];
+        }
+
+        const [nname, table_, includes] = csv_to_fbs_table(p.csv, name);
+        // 是否为复用表
+        if (nname != name) {
+            console.log(`表 ${name} 为复用表 复用 ${nname}`);
+        }
+
         const fbs_dir = path.dirname(p.fbs);
 
         let table_fbs: string = '';
@@ -324,6 +372,15 @@ export function generate_fbs(): {
         table_fbs += table_;
 
         fs.mkdirSync(path.dirname(p.fbs), { recursive: true });
+
+        if (fs.existsSync(p.fbs)) {
+            const old_table_fbs = fs.readFileSync(p.fbs, 'utf8');
+            if (old_table_fbs != table_fbs) {
+                console.error(`表 ${name} 复用表 ${nname} 发生属性变化！！！`);
+                exit(1)
+            }
+        }
+
         fs.writeFileSync(p.fbs, table_fbs, 'utf8');
     }
 

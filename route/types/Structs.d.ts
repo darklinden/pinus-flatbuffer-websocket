@@ -1,8 +1,8 @@
 import { Cmd } from "./Cmd";
-import { FooBar } from "./FooBar";
+import { Home } from "./Home";
 export declare class Structs {
-    private m_FooBar;
-    static get FooBar(): FooBar;
+    private m_Home;
+    static get Home(): Home;
     private static _instance;
     static get instance(): Structs;
     constructor();

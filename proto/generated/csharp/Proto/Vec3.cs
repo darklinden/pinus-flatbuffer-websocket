@@ -13,7 +13,7 @@ public struct Vec3 : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_22_9_29(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static Vec3 GetRoot(ByteBuffer _bb) { return GetRoot(_bb, new Vec3()); }
   public static Vec3 GetRoot(ByteBuffer _bb, Vec3 obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -75,5 +75,17 @@ public class Vec3T
   }
 }
 
+
+static public class Vec3Verify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*X*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 6 /*Y*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 8 /*Z*/, 4 /*int*/, 4, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

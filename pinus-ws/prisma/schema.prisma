@@ -1,0 +1,36 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model login_history {
+  id         BigInt  @id(map: "PK_fe377f36d49c39547cb6b9f0727") @default(autoincrement())
+  uid        BigInt  @default(autoincrement())
+  login_type Int
+  login_time BigInt
+  ip         String? @db.VarChar
+
+  @@index([uid], map: "IDX_3b0b0d3f8b0e2e9f9b4b4b968b")
+  @@index([ip], map: "IDX_7c03e495294640bd6aaa50adcd")
+}
+
+model user {
+  id              BigInt  @id(map: "PK_a3ffb1c0c8416b9fc6f907b7433") @default(autoincrement())
+  account         String? @db.VarChar
+  password        String? @db.VarChar
+  token_iat_limit BigInt  @default(0)
+
+  @@index([account], map: "IDX_97672ac88f789774dd47f7c8be")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_info {
+  id                 BigInt @id(map: "PK_495a51b288528ad9e4a0125060c") @default(autoincrement())
+  name               String @db.VarChar
+  level              Int
+  last_login_version String @default("") @db.VarChar
+}

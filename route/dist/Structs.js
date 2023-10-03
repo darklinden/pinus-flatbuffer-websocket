@@ -2,18 +2,18 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Structs = void 0;
 const RouteBase_1 = require("./RouteBase");
-const FooBar_1 = require("./FooBar");
+const Home_1 = require("./Home");
 class Structs {
-    constructor() {
-        this.m_FooBar = null;
-        this._routs = null;
-        this.m_FooBar = new FooBar_1.FooBar();
-    }
-    static get FooBar() { return this.instance.m_FooBar; }
+    static get Home() { return this.instance.m_Home; }
     static get instance() {
         if (!this._instance)
             this._instance = new Structs();
         return this._instance;
+    }
+    constructor() {
+        this.m_Home = null;
+        this._routs = null;
+        this.m_Home = new Home_1.Home();
     }
     get routs() {
         if (!this._routs) {

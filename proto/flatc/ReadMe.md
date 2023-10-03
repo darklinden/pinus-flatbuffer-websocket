@@ -3,7 +3,7 @@
 ## Versions
 
 * <https://github.com/google/flatbuffers>
-* v22.9.29
+* v23.5.26
 
 ===========
 

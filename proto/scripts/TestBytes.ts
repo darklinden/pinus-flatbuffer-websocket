@@ -13,8 +13,7 @@ export function test_bytes(bytes_path_list: [string, string, string][]): void {
         const json_path = item[1];
         const bytes_path = item[2];
 
-        let test_path = path.join(path.dirname(fbs_path), path.basename(fbs_path, '.fbs') + '.json');
-        test_path = path.join(paths.tests, test_path.slice(paths.fbs.length + 1));
+        let test_path = path.join(paths.tests, json_path.slice(paths.json.length + 1));
         fs.mkdirSync(path.dirname(test_path), { recursive: true });
 
         console.log(`使用 ${path.basename(fbs_path)} 测试数据 ${bytes_path}`);

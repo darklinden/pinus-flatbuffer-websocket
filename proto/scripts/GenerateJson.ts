@@ -182,7 +182,7 @@ function csv_to_table_struct(
             continue;
         }
 
-        if (row.length <= 0 || (row.length == 1 && row[0] === '')) {
+        if (row.length <= 0 || (row[0] === '')) {
             // 跳过空行
             continue;
         }
@@ -191,6 +191,7 @@ function csv_to_table_struct(
             header = row;
         }
         else {
+            // console.log('data', row);
             data.push(row);
         }
     }
@@ -282,17 +283,23 @@ export function parse_json_field_enum_type(struct: JsonFieldStruct, str: string)
     else if (struct.enumVK.hasOwnProperty(parseInt(str))) {
         return struct.enumVK[parseInt(str)];
     }
+    else if (!str || !str.length) {
+        return struct.enumVK[0];
+    }
     else {
         throw new Error('未知枚举值: ' + struct.typeStr + ' - ' + JSON.stringify(struct.enumKV) + ' - [' + str + ']');
     }
 }
 
 export function parse_json_field_struct_or_table_type(struct: JsonFieldStruct, str: string): any {
+
+    if (!str || !str.length) return null;
+
     let obj: any = {};
     let items = str.split('#');
 
     if (items.length < struct.subStructs.length) {
-        throw new Error('字段数量不匹配: ' + struct.typeStr + ' - ' + str);
+        throw new Error('字段数量不匹配: ' + struct.typeStr + ' - [' + str + ']');
     }
 
     for (let i = 0; i < struct.subStructs.length; i++) {
@@ -321,10 +328,18 @@ export function parse_json_field(struct: JsonFieldStruct, str: string): [string,
         }
         else {
             if (str == null || str.trim() == '') {
-                if (struct.typeStr != 'string')
-                    return [struct.name, 0];
-                else
-                    return [struct.name, ''];
+                switch (struct.typeStr) {
+                    case 'bool':
+                        return [struct.name, false];
+                    case 'string':
+                        return [struct.name, ''];
+                    case 'int32':
+                    case 'int64':
+                    case 'byte':
+                        return [struct.name, 0];
+                    default:
+                        return [struct.name, null];
+                }
             }
             value = parse_json_field_base_type(struct.typeStr, str);
         }
@@ -338,6 +353,9 @@ export function parse_json_field(struct: JsonFieldStruct, str: string): [string,
             let arr = str.split(';');
             value = [];
             for (const item of arr) {
+                if (item == null || item.trim() == '') {
+                    continue;
+                }
                 value.push(parse_json_field_enum_type(struct, item));
             }
         }
@@ -357,7 +375,8 @@ export function parse_json_field(struct: JsonFieldStruct, str: string): [string,
             let arr = str.split(';');
             value = [];
             for (const item of arr) {
-                value.push(parse_json_field_struct_or_table_type(struct, item));
+                var o = parse_json_field_struct_or_table_type(struct, item)
+                o && value.push(o);
             }
         }
         else {
@@ -379,6 +398,12 @@ function get_csv_row_data(csv_path: string): string[][] {
             // 跳过表头和注释
             continue;
         }
+
+        if (row.length <= 0 || (row[0] === '')) {
+            // 跳过空行
+            continue;
+        }
+
         if (!header) {
             header = row;
         }
@@ -422,17 +447,30 @@ export function generate_json(obj: {
 
     const fbs_to_json: [string, string][] = [];
 
+    const split_tables: Map<string, string[]> = new Map();
+
     for (const table in obj.tables) {
 
         const p = obj.tables[table];
         const csv_path = p.csv;
         const fbs_path = p.fbs;
 
-        let json_path = path.join(path.dirname(fbs_path), path.basename(fbs_path, '.fbs') + '.json');
-        json_path = path.join(paths.json, json_path.slice(paths.fbs.length + 1));
+        let table_base_name = path.basename(csv_path, 'Table.csv');
+        let json_path = path.join(path.dirname(csv_path), table_base_name + '.json');
+        json_path = path.join(paths.json, json_path.slice(paths.csv.length + 1));
         console.log('正在导出表格数据到 JSON ', csv_path, fbs_path, json_path);
 
-        fbs_to_json.push([fbs_path, json_path]);
+        if (table_base_name.indexOf('@') > 0) {
+            // 拆表待合并
+            if (split_tables.has(fbs_path) == false) {
+                split_tables.set(fbs_path, []);
+            }
+            split_tables.get(fbs_path).push(json_path);
+        }
+        else {
+            // 普通表
+            fbs_to_json.push([fbs_path, json_path]);
+        }
 
         const struct = csv_to_table_struct(csv_path, includes, obj);
         const dataRows = get_csv_row_data(csv_path);
@@ -442,6 +480,39 @@ export function generate_json(obj: {
         let json = JSON.stringify(tableData, null, 4);
         fs.mkdirSync(path.dirname(json_path), { recursive: true });
         fs.writeFileSync(json_path, json, 'utf8');
+    }
+
+    // 合并拆表
+    if (split_tables.size > 0) {
+        for (const [fbs_path, json_paths] of split_tables) {
+            const tableData: { rows: any[] } = { rows: [] };
+
+            // 按 @ 后面的数字排序
+            json_paths.sort((a, b) => {
+                let na = path.basename(a, '.json');
+                let nb = path.basename(b, '.json');
+                na = na.slice(na.indexOf('@') + 1);
+                nb = nb.slice(nb.indexOf('@') + 1);
+                return parseInt(na) - parseInt(nb);
+            });
+
+            for (const path of json_paths) {
+                console.log('正在合并拆表数据 JSON ', path);
+                const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+                for (const row of data.rows) {
+                    tableData.rows.push(row);
+                }
+            }
+            let json = JSON.stringify(tableData, null, 4);
+
+            let fbs_base_name = path.basename(fbs_path, '.fbs');
+            let json_path = path.join(path.dirname(fbs_path), fbs_base_name + '.json');
+            json_path = path.join(paths.json, json_path.slice(paths.fbs.length + 1));
+
+            fs.mkdirSync(path.dirname(json_path), { recursive: true });
+            fs.writeFileSync(json_path, json, 'utf8');
+            fbs_to_json.push([fbs_path, json_path]);
+        }
     }
 
     return fbs_to_json;

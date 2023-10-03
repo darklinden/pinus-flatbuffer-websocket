@@ -1,0 +1,8 @@
+.gitignore
+.dockerignore
+.env
+target
+test
+.vscode
+deploy.sh
+ReadMe.md

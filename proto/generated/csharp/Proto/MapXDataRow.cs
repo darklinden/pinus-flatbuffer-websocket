@@ -13,7 +13,7 @@ public struct MapXDataRow : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_22_9_29(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
   public static MapXDataRow GetRoot(ByteBuffer _bb) { return GetRoot(_bb, new MapXDataRow()); }
   public static MapXDataRow GetRoot(ByteBuffer _bb, MapXDataRow obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
@@ -116,5 +116,18 @@ public class MapXDataRowT
   }
 }
 
+
+static public class MapXDataRowVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Id*/, 4 /*int*/, 4, false)
+      && verifier.VerifyString(tablePos, 6 /*Name*/, false)
+      && verifier.VerifyVectorOfTables(tablePos, 8 /*Camp1*/, Proto.Vec3Verify.Verify, false)
+      && verifier.VerifyVectorOfTables(tablePos, 10 /*Camp2*/, Proto.Vec3Verify.Verify, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

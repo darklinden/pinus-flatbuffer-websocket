@@ -1,0 +1,3 @@
+错误码|err_code:ServerErrorType,错误信息|err_msg:string
+ERR_SUCCESS,操作成功,
+ERR_FAILED,操作失败,

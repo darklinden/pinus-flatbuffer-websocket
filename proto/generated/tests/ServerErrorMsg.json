@@ -1,0 +1,12 @@
+{
+  "rows": [
+    {
+      "err_code": "ERR_SUCCESS",
+      "err_msg": "\u64CD\u4F5C\u6210\u529F"
+    },
+    {
+      "err_code": "ERR_FAILED",
+      "err_msg": "\u64CD\u4F5C\u5931\u8D25"
+    }
+  ]
+}

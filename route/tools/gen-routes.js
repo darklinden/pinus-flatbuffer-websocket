@@ -23,8 +23,10 @@ fs.readdirSync(src_folder).forEach(file => {
 });
 
 // read routes from server
-const server_app_folder = path.join(__dirname, '..', '..', 'server', 'app');
+const server_root = path.join(__dirname, '..', '..', 'pinus-ws');
+const server_app_folder = path.join(server_root, 'app');
 const file_dict = {};
+const route_list = [];
 
 function fileDictAddRoute(r) {
     // { clazz: '', client: '', server: '', route: '' };
@@ -37,6 +39,12 @@ function fileDictAddRoute(r) {
     }
     list.push(r);
     file_dict[r.clazz] = list;
+    if (route_list.indexOf(r.route) < 0) {
+        route_list.push(r.route);
+    }
+    else {
+        console.error('ERROR: route duplicated: ' + r.route);
+    }
 }
 
 // @MarkRoute('FooRoute', proto.LargeNumber, proto.LargeNumber)
@@ -142,6 +150,13 @@ clazz_names.forEach(clazz => {
 
     fs.writeFileSync(route_file, lines.join('\n'), { encoding: 'utf8' });
 });
+
+// export routes
+{
+    const export_path = path.join(server_root, 'config', 'dictionary.json');
+    route_list.sort();
+    fs.writeFileSync(export_path, JSON.stringify(route_list, null, 4), { encoding: 'utf8' });
+}
 
 //  gen structs
 {

@@ -1,13 +1,13 @@
 import { Cmd } from "./Cmd";
 import { RouteBase } from "./RouteBase";
 
-import { FooBar } from "./FooBar";
+import { Home } from "./Home";
 
 export class Structs {
 
     // --- group routes begin ---
-private m_FooBar: FooBar = null;
-public static get FooBar(): FooBar { return this.instance.m_FooBar; }
+private m_Home: Home = null;
+public static get Home(): Home { return this.instance.m_Home; }
     // --- group routes end ---
 
     // --- instance begin ---
@@ -19,7 +19,7 @@ public static get FooBar(): FooBar { return this.instance.m_FooBar; }
     // --- instance end ---
 
     constructor() {
-this.m_FooBar = new FooBar();
+this.m_Home = new Home();
     }
 
     private _routs: Map<string, Cmd> = null;

@@ -5,4 +5,4 @@ export { Structs } from './Structs';
 export { proto } from './proto/internal';
 
 
-export { FooBar } from "./FooBar";
+export { Home } from "./Home";

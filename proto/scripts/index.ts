@@ -2,9 +2,10 @@ import fs = require('fs');
 import path = require('path');
 
 import { generate_bytes } from "./GenerateBytes";
-import { generate_code, generate_csharp_code, generate_ts_code } from "./GenerateCode";
+import { generate_code, generate_csharp_code, generate_rust_code, generate_ts_code } from "./GenerateCode";
 import { generate_fbs } from "./GenerateFbs";
 import { generate_json } from "./GenerateJson";
+import { generate_version } from './GenerateVersion';
 import { Initialize } from "./Initialize";
 import { paths } from "./Paths";
 import { test_bytes } from "./TestBytes";
@@ -36,6 +37,7 @@ async function main() {
     console.log('----------------------------------------');
     generate_ts_code();
     generate_csharp_code();
+    generate_rust_code();
     console.log('========================================\n');
 
     console.log('========================================');
@@ -54,6 +56,12 @@ async function main() {
     console.log('校验二进制数据');
     console.log('----------------------------------------');
     test_bytes(bytes_path_list);
+    console.log('========================================\n');
+
+    console.log('========================================');
+    console.log('生成配置文件版本');
+    console.log('----------------------------------------');
+    generate_version(bytes_path_list, path.join(paths.bytes, 'version.bytes'));
     console.log('========================================\n');
 
     console.log('');

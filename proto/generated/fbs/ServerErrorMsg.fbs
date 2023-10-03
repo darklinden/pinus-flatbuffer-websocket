@@ -1,0 +1,11 @@
+include "ServerErrorType.fbs";
+namespace Proto;
+
+table ServerErrorMsgRow {
+    err_code:ServerErrorType;
+    err_msg:string;
+}
+table ServerErrorMsg {
+    rows:[ServerErrorMsgRow];
+}
+root_type ServerErrorMsg;

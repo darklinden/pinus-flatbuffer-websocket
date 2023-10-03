@@ -1,5 +1,0 @@
-namespace Proto;
-
-table Foo {
-    foo:int64;
-}
