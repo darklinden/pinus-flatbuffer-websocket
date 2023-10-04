@@ -27,7 +27,7 @@ namespace XPool
             if (m_bytes == null || m_bytes.Length < ms.Length)
             {
                 BytesPool.Return(ref m_bytes);
-                m_bytes = BytesPool.Rent((int)ms.Length);
+                m_bytes = BytesPool.Get((int)ms.Length);
             }
             ms.Read(m_bytes, 0, (int)ms.Length);
             m_Count = (int)ms.Length;
@@ -39,7 +39,7 @@ namespace XPool
             if (m_bytes == null || m_bytes.Length < totalLength)
             {
                 BytesPool.Return(ref m_bytes);
-                m_bytes = BytesPool.Rent(totalLength);
+                m_bytes = BytesPool.Get(totalLength);
             }
             System.Buffer.BlockCopy(data, dataOffset, m_bytes, index, dataLength);
             // Array.Copy(data, dataOffset, m_bytes, index, dataLength);
@@ -52,7 +52,7 @@ namespace XPool
             if (m_bytes == null || m_bytes.Length < dataLength)
             {
                 BytesPool.Return(ref m_bytes);
-                m_bytes = BytesPool.Rent(dataLength);
+                m_bytes = BytesPool.Get(dataLength);
             }
             // fill json utf-8 bytes
             System.Text.Encoding.UTF8.GetBytes(str, 0, str.Length, m_bytes, index);
@@ -65,7 +65,7 @@ namespace XPool
             if (m_bytes == null || m_bytes.Length < dataLength)
             {
                 BytesPool.Return(ref m_bytes);
-                m_bytes = BytesPool.Rent(dataLength);
+                m_bytes = BytesPool.Get(dataLength);
             }
             m_bytes[index] = b;
             if (m_Count < dataLength) m_Count = dataLength;
@@ -76,7 +76,7 @@ namespace XPool
             if (m_bytes == null || m_bytes.Length < count)
             {
                 BytesPool.Return(ref m_bytes);
-                m_bytes = BytesPool.Rent(count);
+                m_bytes = BytesPool.Get(count);
             }
             m_Count = count;
         }
@@ -95,7 +95,7 @@ namespace XPool
             Log.D("PooledBuffer Dispose");
 #endif
             Clear();
-            AnyPool<XBuffer>.Release(this);
+            AnyPool<XBuffer>.Return(this);
         }
 
         public static XBuffer Get()

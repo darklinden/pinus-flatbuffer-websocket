@@ -40,7 +40,7 @@ namespace Google.FlatBuffers
             if (Buffer == null || Buffer.Length < initialSize)
             {
                 BytesPool.Return(ref _buffer);
-                _buffer = BytesPool.Rent(initialSize);
+                _buffer = BytesPool.Get(initialSize);
             }
             Length = Buffer.Length;
         }
@@ -65,7 +65,7 @@ namespace Google.FlatBuffers
                 throw new Exception("ByteBuffer: cannot truncate buffer.");
 
             // Rent new and copy
-            var newBuffer = BytesPool.Rent(newSize);
+            var newBuffer = BytesPool.Get(newSize);
             System.Buffer.BlockCopy(_buffer, 0, newBuffer, newBuffer.Length - Length, Length);
 
             // Return old

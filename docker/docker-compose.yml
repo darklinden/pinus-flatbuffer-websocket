@@ -65,14 +65,12 @@ services:
 
   ws-server:
     container_name: "ws-server"
-    image: node:16-alpine3.16
+    image: pinus-ws
     restart: always
-    working_dir: /home/node/app
+    working_dir: /app
     env_file:
       - config.env
-    command: sh /home/node/app/start.sh
-    volumes:
-      - ./ws-server:/home/node/app
+    command: node /app/dist/app.js
     ports:
       - "3010:3010"
       - "3011:3011"
@@ -98,8 +96,8 @@ services:
         source: ./nginx/nginx.conf
         target: /etc/nginx/nginx.conf
     ports:
-      - "8080:8080"
-      - "8081:8081"
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8081"
     expose:
       - "8080"
       - "8081"

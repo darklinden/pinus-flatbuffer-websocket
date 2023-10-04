@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using Proto;
 using UnityEngine;
 
@@ -16,39 +17,91 @@ namespace XPool
             set
             {
                 m_hideType = value;
-                if (Pools == null) return;
-                foreach (var pool in Pools)
+                if (Pools != null)
                 {
-                    pool.Value.HideType = value;
+                    foreach (var pool in Pools)
+                    {
+                        pool.Value.HideType = value;
+                    }
                 }
             }
         }
 
-        public static GameObjectTypedPool CreateInstance(Transform parent = null)
+        public static GameObjectTypedPool CreateInstance(Transform parent, string name)
         {
-            var go = new GameObject("GameObjectTypedPool"); // create a new game object
+            var go = new GameObject(name); // create a new game object
+            var gt = go.transform;
             if (parent != null)
             {
-                go.transform.SetParent(parent);
+                gt.SetParent(parent);
+                if (parent.GetComponent<RectTransform>() != null)
+                {
+                    gt = go.AddComponent<RectTransform>();
+                }
             }
             else if (Application.isPlaying)
             {
                 DontDestroyOnLoad(go);
             }
-            go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.identity;
-            go.transform.localScale = Vector3.one;
+            gt.localPosition = Vector3.zero;
+            gt.localRotation = Quaternion.identity;
+            gt.localScale = Vector3.one;
             var instance = go.AddComponent<GameObjectTypedPool>();
             return instance;
         }
 
-        private XList<int> Types { get; set; } // the pool types
         private Dictionary<int, GameObjectPool> Pools { get; set; } // the pool 
 
+        [SerializeField] private bool _isInitialized = false;
+        public bool IsInitialized => _isInitialized;
         public void Initialize(int capacity = 1)
         {
-            Types = XList<int>.Get(capacity);
-            Pools = new Dictionary<int, GameObjectPool>(capacity);
+            if (Pools == null)
+            {
+                Pools = new Dictionary<int, GameObjectPool>(capacity);
+#if XPOOL_LOG
+                Log.D("GameObjectTypedPool.Initialize", gameObject.name, "Create Pool");
+#endif
+            }
+            else
+            {
+#if XPOOL_LOG
+                Log.E("GameObjectTypedPool.Initialize", gameObject.name, "Pool Is Already Initialized");
+#endif
+            }
+
+            _isInitialized = true;
+        }
+
+        public void DeinitializeAll()
+        {
+            _isInitialized = false;
+#if XPOOL_LOG
+            Log.D("GameObjectTypedPool.DeinitializeAll", gameObject.name);
+#endif
+            if (Pools != null)
+            {
+                foreach (var pool in Pools.Values)
+                {
+                    pool.Deinitialize();
+                    Destroy(pool.gameObject);
+                }
+
+                Pools.Clear();
+                Pools = null;
+            }
+        }
+
+        public async UniTask PrewarmAsync(int type, int count)
+        {
+            if (Pools.TryGetValue(type, out var pool))
+            {
+                await pool.PrewarmAsync(count);
+            }
+            else
+            {
+                Log.E("GameObjectTypedPool.PrewarmAsync", gameObject.name, "Pool Not Found", type);
+            }
         }
 
         public void SetPrefab<T>(int type, T prefab, string addr = null) where T : Component
@@ -72,16 +125,15 @@ namespace XPool
 
             if (Pools.TryGetValue(type, out var pool))
             {
-                pool.Initialize(prefab, 1, addr);
+                pool.Initialize(prefab, addr);
                 pool.HideType = HideType;
             }
             else
             {
                 pool = GameObjectPool.CreateInstance(transform);
-                pool.Initialize(prefab, 1, addr);
+                pool.Initialize(prefab, addr);
                 pool.HideType = HideType;
                 Pools.Add(type, pool);
-                Types.Add(type);
             }
         }
 
@@ -98,7 +150,12 @@ namespace XPool
 
         public bool HasPool(int type)
         {
-            return Types.Contains(type);
+            if (Pools.TryGetValue(type, out var pool))
+            {
+                return pool.IsInitialized;
+            }
+
+            return false;
         }
 
         public GameObject Get(int type)
@@ -112,12 +169,12 @@ namespace XPool
             return pool.Get();
         }
 
-        public void Release<T>(T t, int type) where T : Component
+        public void Return<T>(T t, int type) where T : Component
         {
-            Release(t.gameObject, type);
+            Return(t.gameObject, type);
         }
 
-        public void Release(GameObject obj, int type)
+        public void Return(GameObject obj, int type)
         {
             if (!Pools.TryGetValue(type, out var pool))
             {
@@ -126,18 +183,18 @@ namespace XPool
                 return;
             }
 
-            pool.Release(obj);
+            pool.Return(obj);
         }
 
-        public void ReleaseAll(int type)
+        public void ReturnAll(int type)
         {
             if (Pools.TryGetValue(type, out var pool))
             {
-                pool?.ReleaseAll();
+                pool?.ReturnAll();
             }
         }
 
-        public void ReleaseAll()
+        public void ReturnAll()
         {
             if (Pools == null)
             {
@@ -145,15 +202,7 @@ namespace XPool
             }
             foreach (var pool in Pools.Values)
             {
-                pool.ReleaseAll();
-            }
-        }
-
-        public void DeinitializeAll()
-        {
-            foreach (var pool in Pools.Values)
-            {
-                pool.Deinitialize();
+                pool.ReturnAll();
             }
         }
     }

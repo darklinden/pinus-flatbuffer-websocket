@@ -84,6 +84,7 @@ namespace UnityWebSocket
 #if UNITY_WEBSOCKET_LOG
             Log.D("Close with instanceId", instanceId);
 #endif
+            if (ReadyState == WebSocketState.Closed) return;
             int code = WebSocketManager.WebSocketClose(instanceId, (int)CloseStatusCode.Normal, "Normal Closure");
             if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
         }

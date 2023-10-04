@@ -1,16 +1,22 @@
 ﻿using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace XPool
 {
     public class GameObjectPool : MonoBehaviour
     {
+        public int CreateLimitPerFrame = 10;
         public GameObjectPoolHideType HideType { get; set; } = GameObjectPoolHideType.Active;
+        [SerializeField, ReadOnly] private string Pool_Name = "";
 
 #if UNITY_EDITOR && DEBUG
         [SerializeField, ReadOnly] private int Pool_Count = 0;
         [SerializeField, ReadOnly] private int Spawn_Count = 0;
 #endif
+
+        private Transform m_transform = null;
+        public Transform Transform => m_transform == null ? m_transform = transform : m_transform;
 
         private void AddChildrenToListRecursively(List<Transform> list, Transform parent)
         {
@@ -36,42 +42,69 @@ namespace XPool
 
         private void HideObject(GameObject go)
         {
-            if (HideType == GameObjectPoolHideType.Active)
+            switch (HideType)
             {
-                go.SetActive(false);
-            }
-            else if (HideType == GameObjectPoolHideType.Layer)
-            {
-                SetLayerRecursively(go, 31);
+                case GameObjectPoolHideType.Active:
+                    go.SetActive(false);
+                    break;
+                case GameObjectPoolHideType.Layer:
+                    SetLayerRecursively(go, 31);
+                    break;
+                case GameObjectPoolHideType.UIAlpha:
+                    {
+                        var cg = go.GetComponent<CanvasGroup>();
+                        if (cg != null)
+                        {
+                            cg.alpha = 0f;
+                            cg.blocksRaycasts = false;
+                        }
+                    }
+                    break;
             }
         }
 
         private void ShowObject(GameObject go)
         {
-            if (HideType == GameObjectPoolHideType.Active)
+            switch (HideType)
             {
-                go.SetActive(true);
-            }
-            else if (HideType == GameObjectPoolHideType.Layer)
-            {
-                SetLayerRecursively(go, Prefab.layer);
+                case GameObjectPoolHideType.Active:
+                    go.SetActive(true);
+                    break;
+                case GameObjectPoolHideType.Layer:
+                    SetLayerRecursively(go, Prefab.layer);
+                    break;
+                case GameObjectPoolHideType.UIAlpha:
+                    {
+                        var cg = go.GetComponent<CanvasGroup>();
+                        if (cg != null)
+                        {
+                            cg.alpha = 1f;
+                            cg.blocksRaycasts = true;
+                        }
+                    }
+                    break;
             }
         }
 
         public static GameObjectPool CreateInstance(Transform parent = null)
         {
             var go = new GameObject("GameObjectPool"); // create a new game object
+            var gt = go.transform;
             if (parent != null)
             {
-                go.transform.SetParent(parent);
+                gt.SetParent(parent, false);
+                if (parent.GetComponent<RectTransform>() != null)
+                {
+                    gt = go.AddComponent<RectTransform>();
+                }
             }
             else if (Application.isPlaying)
             {
                 DontDestroyOnLoad(go);
             }
-            // go.transform.localPosition = Vector3.zero;
-            // go.transform.localRotation = Quaternion.identity;
-            // go.transform.localScale = Vector3.one;
+            gt.localPosition = Vector3.zero;
+            gt.localRotation = Quaternion.identity;
+            gt.localScale = Vector3.one;
             var instance = go.AddComponent<GameObjectPool>();
             return instance;
         }
@@ -79,10 +112,11 @@ namespace XPool
         internal int Type { get; set; }
         public string Addr { get; set; }
         public GameObject Prefab { get; private set; }
-        private XList<GameObject> Pooled { get; set; } // the pool
-        private XList<GameObject> Spawned { get; set; } // the pool
+        public bool IsInitialized => Prefab != null;
+        private Queue<GameObject> Pooled { get; set; } // the pool
+        public HashSet<GameObject> Spawned { get; set; } // the pool
 
-        public void Initialize<T>(T prefab, int capacity = 1, string addr = null) where T : Component
+        public void Initialize<T>(T prefab, string addr = null) where T : Component
         {
             if (prefab == null)
             {
@@ -90,10 +124,10 @@ namespace XPool
                 return;
             }
 
-            Initialize(prefab.gameObject, capacity, addr);
+            Initialize(prefab.gameObject, addr);
         }
 
-        public void Initialize(GameObject prefab, int capacity = 1, string addr = null)
+        public void Initialize(GameObject prefab, string addr = null)
         {
             if (prefab == null)
             {
@@ -107,64 +141,127 @@ namespace XPool
                 return;
             }
 
-            Prefab = prefab;
-            Addr = addr;
-            if (Pooled != null)
+            Pool_Name = prefab.name;
+
+#if XPOOL_LOG
+            Log.D("GameObjectPool.Initialize", Pool_Name);
+#endif
+
+            if (Prefab != prefab)
             {
-                foreach (var go in Pooled)
+                Prefab = prefab;
+                Addr = addr;
+                if (Pooled != null)
                 {
-                    Destroy(go);
+                    foreach (var go in Pooled)
+                    {
+                        Destroy(go);
+                    }
                 }
-                Pooled.Dispose();
-            }
-            Pooled = XList<GameObject>.Get(capacity);
-            if (Spawned != null)
-            {
-                foreach (var go in Spawned)
+                else
                 {
-                    Destroy(go);
+                    Pooled = new Queue<GameObject>();
                 }
-                Spawned.Dispose();
+                if (Spawned != null)
+                {
+                    foreach (var hash_go in Spawned)
+                    {
+                        Destroy(hash_go);
+                    }
+                }
+                else
+                {
+                    Spawned = new HashSet<GameObject>();
+                }
             }
-            Spawned = XList<GameObject>.Get(capacity);
         }
 
         public void Deinitialize()
         {
+
+#if XPOOL_LOG
+            Log.D("GameObjectPool.Deinitialize", Pool_Name);
+#endif
+
             if (Prefab == null)
             {
-                Log.E("GameObjectPool.Deinitialize", " Deinitialize twice");
+                Log.W("GameObjectPool.Deinitialize", Pool_Name, " Deinitialize twice");
                 return;
             }
 
             Prefab = null;
-            LoadUtil.Release(Addr);
-            Addr = null;
             if (Pooled != null)
             {
                 foreach (var go in Pooled)
                 {
                     Destroy(go);
                 }
-                Pooled.Dispose();
+                Pooled.Clear();
             }
             Pooled = null;
             if (Spawned != null)
             {
-                foreach (var go in Spawned)
+                foreach (var hash_go in Spawned)
                 {
-                    Destroy(go);
+                    Destroy(hash_go);
                 }
-                Spawned.Dispose();
+                Spawned.Clear();
             }
             Spawned = null;
+
+            if (string.IsNullOrEmpty(Addr) == false)
+            {
+                // LoadUtil.Release(Addr);
+                Addr = null;
+            }
+        }
+
+        public async UniTask PrewarmAsync(int count)
+        {
+            if (Prefab == null)
+            {
+                Log.E("GameObjectPool.PrewarmAsync prefab is null");
+                return;
+            }
+
+            if (count <= 0)
+            {
+                Log.E("GameObjectPool.PrewarmAsync count <= 0");
+                return;
+            }
+
+            if (Pooled == null)
+            {
+                Pooled = new Queue<GameObject>();
+            }
+
+            if (Spawned == null)
+            {
+                Spawned = new HashSet<GameObject>();
+            }
+
+            var limit = CreateLimitPerFrame;
+            for (int i = 0; i < count; i++)
+            {
+                var go = Instantiate(Prefab);
+                HideObject(go);
+                go.transform.SetParent(Transform);
+                Pooled.Enqueue(go);
+
+                limit--;
+                if (limit <= 0)
+                {
+                    limit = CreateLimitPerFrame;
+                    await UniTask.Yield();
+                }
+            }
         }
 
         public GameObject Get()
         {
             if (Prefab == null)
             {
-                Log.E("GameObjectPool.Get prefab is null");
+                Log.W("GameObjectPool.Get prefab is null. Maybe Deinitialize called");
                 return null;
             }
 
@@ -174,8 +271,7 @@ namespace XPool
             {
                 while (go == null && Pooled.Count > 0)
                 {
-                    go = Pooled[0];
-                    Pooled.RemoveAt(0);
+                    go = Pooled.Dequeue();
                 }
             }
 
@@ -186,8 +282,15 @@ namespace XPool
 
             if (go != null)
             {
-                go.SetActive(true);
-                go.transform.SetParent(transform);
+                ShowObject(go);
+                go.transform.SetParent(Transform);
+                RectTransform grt = null;
+                if ((grt = go.GetComponent<RectTransform>()) != null)
+                {
+                    grt.localPosition = Vector3.zero;
+                    grt.localRotation = Quaternion.identity;
+                    grt.localScale = Vector3.one;
+                }
                 // go.transform.localPosition = Vector3.zero;
                 // go.transform.localRotation = Prefab.transform.localRotation;
                 // go.transform.localScale = Prefab.transform.localScale;
@@ -201,33 +304,36 @@ namespace XPool
             return go;
         }
 
-        public void ResetObjectForRelease(GameObject go)
+        public void ResetObjectForReturn(GameObject go)
         {
             if (go == null) return;
 
-            go.SetActive(false);
-            go.transform.SetParent(transform);
+            HideObject(go);
+            go.transform.SetParent(Transform);
             // go.transform.localPosition = Vector3.zero;
             // go.transform.localRotation = Prefab.transform.localRotation;
             // go.transform.localScale = Prefab.transform.localScale;
         }
 
-
-        public void Release<T>(T t) where T : Component
+        public void Return<T>(T t) where T : Component
         {
-            Release(t.gameObject);
+            Return(t.gameObject);
         }
 
-        public void Release(GameObject obj)
+        public void Return(GameObject obj)
         {
-            if (Spawned.Remove(obj))
+            if (Spawned != null && Spawned.Remove(obj))
             {
-                ResetObjectForRelease(obj);
-                Pooled.Add(obj);
+                ResetObjectForReturn(obj);
+                Pooled.Enqueue(obj);
+            }
+            else if (Pooled.Contains(obj))
+            {
+                Log.W("GameObjectPool.Release", "object is already released", obj.name);
             }
             else
             {
-                Log.W("GameObjectPool.Release", "object is not spawned by this pool");
+                Log.W("GameObjectPool.Release", "object is not spawned by this pool", obj.name);
                 Object.Destroy(obj);
             }
 
@@ -237,56 +343,22 @@ namespace XPool
 #endif
         }
 
-        public void ReleaseAll()
+        public void ReturnAll()
         {
             if (Spawned != null && Spawned.Count > 0)
             {
-                for (int i = Spawned.Count - 1; i >= 0; i--)
+                foreach (var hash_go in Spawned)
                 {
-                    var go = Spawned[i];
-                    ResetObjectForRelease(go);
-                    Pooled.Add(go);
-                    Spawned.RemoveAt(i);
+                    ResetObjectForReturn(hash_go);
+                    Pooled.Enqueue(hash_go);
                 }
+                Spawned.Clear();
+
 #if UNITY_EDITOR && DEBUG
                 Pool_Count = Pooled.Count;
                 Spawn_Count = Spawned.Count;
 #endif
             }
-        }
-
-        internal void DestroyAll()
-        {
-            if (Spawned != null && Spawned.Count > 0)
-            {
-#if UNITY_EDITOR && DEBUG
-                Pool_Count = 0;
-                Spawn_Count = 0;
-#endif
-                for (int i = Spawned.Count - 1; i >= 0; i--)
-                {
-                    var go = Spawned[i];
-                    Object.Destroy(go);
-                }
-                Spawned = null;
-
-                for (int i = Pooled.Count - 1; i >= 0; i--)
-                {
-                    var go = Pooled[i];
-                    Object.Destroy(go);
-                }
-                Pooled = null;
-            }
-        }
-
-        private void OnApplicationQuit()
-        {
-            DestroyAll();
-        }
-
-        private void OnDestroy()
-        {
-            DestroyAll();
         }
     }
 }

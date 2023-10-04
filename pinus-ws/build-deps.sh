@@ -11,11 +11,13 @@ echo "Building proto..."
 cd "${PROTO_DIR}" || exit
 yarn install
 yarn run build
+rm -rf ./node_modules
 
 echo "Building route..."
 cd "${ROUTE_DIR}" || exit
 yarn install
 yarn run build
+rm -rf ./node_modules
 
 echo "Building deps..."
 cd "${PROJECT_DIR}" || exit

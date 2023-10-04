@@ -1,37 +1,42 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine.Profiling;
 
 namespace XPool
 {
     public class AnyPool<T> where T : class, new()
     {
-        private PoolCounter Counter = PoolCounter.Start;
+        // static
+        public static string TypeName = typeof(T).Name;
 
+        // instance
+        public int PoolCapacity { get; set; } = 256;
         readonly Queue<T> m_Pool;
-
         public int PoolLength => m_Pool.Count;
 
-        public AnyPool()
+        public AnyPool(int capacity)
         {
-            m_Pool = new Queue<T>(Counter.MaxCount);
+            if (capacity > 0)
+                PoolCapacity = capacity;
+            m_Pool = new Queue<T>(PoolCapacity);
         }
 
         /// <summary>
         /// The array length is not always accurate.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public T Rent()
+        public T GetAny()
         {
             if (m_Pool.Count != 0)
             {
-                Profiler.BeginSample("AnyPool.Rent Dequeue");
+                Profiler.BeginSample("AnyPool.GetAny Dequeue");
                 var queueT = m_Pool.Dequeue();
                 Profiler.EndSample();
                 return queueT;
             }
 
-            Profiler.BeginSample("AnyPool.Rent Alloc");
+            Profiler.BeginSample("AnyPool.GetAny Alloc");
             var allocT = new T();
             Profiler.EndSample();
             return allocT;
@@ -42,16 +47,24 @@ namespace XPool
         /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
         /// </summary>
         /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-        public void Return(T any)
+        public void ReturnAny(T any)
         {
             if (any == null) return;
 
-            var resized = RuntimeHelpers.BeforePoolPushResize(m_Pool, ref Counter);
-            m_Pool.Enqueue(any);
-            if (resized)
+            if (PoolLength < PoolCapacity)
             {
-                Log.W("AnyPool", typeof(T).Name, "resized to", Counter.MaxCount);
+                m_Pool.Enqueue(any);
             }
+            else
+            {
+                // If the pool is full, we will not return the array to the pool.
+                Log.W("AnyPool ReturnAny Out Of Stack", TypeName, PoolCapacity);
+            }
+        }
+
+        public void Clear()
+        {
+            m_Pool.Clear();
         }
 
         /// <summary>
@@ -59,32 +72,43 @@ namespace XPool
         /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
         /// </summary>
         /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-        public void Return(ref T any)
+        public void ReturnAny(ref T any)
         {
-            Return(any);
+            ReturnAny(any);
             any = null;
         }
 
-        public static readonly AnyPool<T> Shared = new AnyPool<T>();
+        private static AnyPool<T> m_Shared = null;
+        public static AnyPool<T> Shared => m_Shared ?? (m_Shared = new AnyPool<T>(-1));
+        public static AnyPool<T> GenerateSharedWithCapacity(int capacity)
+        {
+            m_Shared = new AnyPool<T>(capacity);
+            return m_Shared;
+        }
 
         public static T Get()
         {
-            return Shared.Rent();
+            return Shared.GetAny();
         }
 
-        public static void Release(T any)
+        public static void Return(T any)
         {
-            Shared.Return(any);
+            Shared.ReturnAny(any);
         }
-    }
 
-    public abstract class XAny<T> : IDisposable where T : XAny<T>, new()
-    {
-        public static T Get()
+        public async UniTask PrewarmAsync(int count, int limitPerFrame = 66)
         {
-            return AnyPool<T>.Get();
+            var prewarmCount = limitPerFrame;
+            for (int i = 0; i < count; i++)
+            {
+                ReturnAny(GetAny());
+                prewarmCount--;
+                if (prewarmCount <= 0)
+                {
+                    prewarmCount = limitPerFrame;
+                    await UniTask.Yield();
+                }
+            }
         }
-
-        public virtual void Dispose() { AnyPool<T>.Release(this as T); }
     }
 }

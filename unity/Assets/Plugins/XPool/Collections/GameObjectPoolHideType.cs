@@ -4,5 +4,6 @@ namespace XPool
     {
         Active,
         Layer,
+        UIAlpha,
     }
 }

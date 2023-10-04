@@ -11,7 +11,7 @@ namespace XPool
             if (preLen <= fixedSize)
             {
                 int minimumSize = (preLen != 0) ? preLen * 2 : kMinArraySize;
-                T[] newArray = pool.Rent((fixedSize < minimumSize) ? minimumSize : fixedSize);
+                T[] newArray = pool.Get((fixedSize < minimumSize) ? minimumSize : fixedSize);
                 if (array != null)
                 {
                     Array.Copy(array, 0, newArray, 0, array.Length);

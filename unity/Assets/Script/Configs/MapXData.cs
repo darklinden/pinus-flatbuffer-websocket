@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using Google.FlatBuffers;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace FlatConfigs
 {
@@ -12,8 +14,10 @@ namespace FlatConfigs
 
     public class MapXData : IConfigLoader
     {
-        public bool LoadOnStart => true;
+        public bool LoadOnStart => false;
         public bool DataLoaded { get; private set; } = false;
+
+        public int Priority => 1;
 
         public void Initialize(Handler configs)
         {
@@ -24,20 +28,20 @@ namespace FlatConfigs
         private Proto.MapXData m_MapXData;
         private Dictionary<int, int> m_MapXDataIdToIndex = new Dictionary<int, int>();
 
-        public IEnumerator RoutineLoad()
+        public async UniTask AsyncLoad()
         {
             if (!DataLoaded)
             {
-                var bytes = Resources.Load<TextAsset>("Configs/Map/MapXData").bytes;
-                m_MapXDataBytes = new ByteBuffer(bytes);
+                var ta = await Addressables.LoadAssetAsync<TextAsset>("Assets/Configs/Map/MapXData.bytes");
 
+                // 不是需要转对象的数据，可以利用flatbuffer的优势，直接用bytebuffer
+                m_MapXDataBytes = new ByteBuffer(ta.bytes);
                 m_MapXData = Proto.MapXData.GetRoot(m_MapXDataBytes);
                 for (int i = 0; i < m_MapXData.RowsLength; i++)
                 {
                     var row = m_MapXData.Rows(i);
                     m_MapXDataIdToIndex[row.Value.Id] = i;
                 }
-                yield return null;
                 DataLoaded = true;
             }
         }

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using System.Collections;
-using System.Reflection;
 using System;
+using Cysharp.Threading.Tasks;
+using XPool;
 
 namespace FlatConfigs
 {
@@ -10,13 +10,24 @@ namespace FlatConfigs
         private static Lazy<Handler> _lazySingletonInstance = new Lazy<Handler>(() => new Handler());
         public static Handler Instance => _lazySingletonInstance.Value;
 
-        public List<IConfigLoader> LoadersLoadOnStart { get; private set; }
-        public List<IConfigLoader> LoadersLoadOnDemand { get; private set; }
+        private Dictionary<int, List<IConfigLoader>> m_StartLoadersInSort = null;
+        private List<int> m_StartLoadSortList = null;
 
+        private Dictionary<int, List<IConfigLoader>> m_DemandLoadersInSort = null;
+        private List<int> m_DemandLoadSortList = null;
+
+        public bool IsInitialized { get; private set; } = false;
         public void Initialize()
         {
-            LoadersLoadOnStart = new List<IConfigLoader>();
-            LoadersLoadOnDemand = new List<IConfigLoader>();
+            if (IsInitialized)
+            {
+                return;
+            }
+
+            m_StartLoadersInSort = new Dictionary<int, List<IConfigLoader>>();
+            m_StartLoadSortList = new List<int>();
+            m_DemandLoadersInSort = new Dictionary<int, List<IConfigLoader>>();
+            m_DemandLoadSortList = new List<int>();
 
             List<Type> typelist = new List<Type>();
 
@@ -43,36 +54,72 @@ namespace FlatConfigs
 
                     if (loader.LoadOnStart)
                     {
-                        LoadersLoadOnStart.Add(loader);
+                        if (!m_StartLoadersInSort.TryGetValue(loader.Priority, out var loaders))
+                        {
+                            loaders = new List<IConfigLoader>();
+                            m_StartLoadersInSort.Add(loader.Priority, loaders);
+                            m_StartLoadSortList.Add(loader.Priority);
+                        }
+                        loaders.Add(loader);
                     }
                     else
                     {
-                        LoadersLoadOnDemand.Add(loader);
+                        if (!m_DemandLoadersInSort.TryGetValue(loader.Priority, out var loaders))
+                        {
+                            loaders = new List<IConfigLoader>();
+                            m_DemandLoadersInSort.Add(loader.Priority, loaders);
+                            m_DemandLoadSortList.Add(loader.Priority);
+                        }
+                        loaders.Add(loader);
                     }
                 }
             }
+
+            m_StartLoadSortList.Sort();
+            m_DemandLoadSortList.Sort();
+
+            IsInitialized = true;
         }
 
-        public IEnumerator RoutineLoadStart()
+        public async UniTask AsyncLoadStart()
         {
-            for (int i = 0; i < LoadersLoadOnStart.Count; i++)
+            // wait for all systems to initialize
+
+            for (int i = 0; i < m_StartLoadSortList.Count; i++)
             {
-                yield return LoadersLoadOnStart[i].RoutineLoad();
+                var loaders = m_StartLoadersInSort[m_StartLoadSortList[i]];
+
+                var tasks = XList<UniTask>.Get(loaders.Count);
+                for (int j = 0; j < loaders.Count; j++)
+                {
+                    tasks.Add(loaders[j].AsyncLoad());
+                }
+                await UniTask.WhenAll(tasks);
+                tasks.Dispose();
             }
         }
 
-        public IEnumerator RoutineLoadDemand()
+        public async UniTask AsyncLoadDemand()
         {
-            for (int i = 0; i < LoadersLoadOnDemand.Count; i++)
+            // wait for all systems to initialize
+
+            for (int i = 0; i < m_DemandLoadSortList.Count; i++)
             {
-                yield return LoadersLoadOnDemand[i].RoutineLoad();
+                var loaders = m_DemandLoadersInSort[m_DemandLoadSortList[i]];
+
+                var tasks = XList<UniTask>.Get(loaders.Count);
+                for (int j = 0; j < loaders.Count; j++)
+                {
+                    tasks.Add(loaders[j].AsyncLoad());
+                }
+                await UniTask.WhenAll(tasks);
+                tasks.Dispose();
             }
         }
 
-        public IEnumerator RoutineLoadAll()
+        public async UniTask AsyncLoadAll()
         {
-            yield return RoutineLoadStart();
-            yield return RoutineLoadDemand();
+            await UniTask.WhenAll(AsyncLoadStart(), AsyncLoadDemand());
         }
     }
 }

@@ -1,43 +1,47 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import hashlib
 import os
 import re
 import shutil
 
-from cprelative import copy_file
+
+def delete_files_in_folder(folder: str, extensions: list = None):
+    print('delete files in folder: ' + folder +
+          ' extensions: ' + str(extensions))
+    for root, dirs, files in os.walk(folder):
+        for fn in files:
+            fpath = os.path.join(root, fn)
+            if os.path.isfile(fpath):
+                fextension = fn[fn.rfind('.') + 1:]
+                if (extensions is None) or fextension in extensions:
+                    # print('remove file: ' + fpath)
+                    os.remove(fpath)
 
 
-def delete_files_in_folder(folder: str, extension: str):
-    for root, _, file in os.walk(folder):
-        for f in file:
-            if not f.endswith(extension):
-                continue
-            fp = os.path.join(root, f)
-            os.remove(fp)
+def deal_with_proto(origin_proto: str, project_path: str):
 
-
-def deal_with_proto(local_path: str):
+    print('deal with proto:')
 
     # copy proto csharp
-    project_path = os.path.dirname(local_path)
-    origin_proto = os.path.dirname(
-        project_path) + '/proto/generated/csharp/Proto'
-    script_proto = project_path + '/Assets/Plugins/Proto'
+    origin_proto_csharp = os.path.join(
+        origin_proto, 'generated', 'csharp', 'Proto')
+    script_proto = os.path.join(project_path, 'Assets', 'Plugins', 'Proto')
+    # print('copy proto csharp from ' + origin_proto_csharp + ' to ' + script_proto)
 
-    delete_files_in_folder(script_proto, '.cs')
+    # delete_files_in_folder(script_proto, ['cs'])
 
     # copy cs
-    copy_file(origin_proto, script_proto,
-              size_check_only=False, extensions=['cs'], quiet=True)
+    copy_files(origin_proto_csharp, script_proto, ['cs'], [], True)
+
+    print('')
 
 
-def gen_route(folder: str):
-    os.remove(folder + '/index.ts')
-    os.remove(folder + '/Cmd.ts')
-    os.remove(folder + '/Structs.ts')
-    os.remove(folder + '/RouteBase.ts')
-    os.remove(folder + '/MarkRoutes.ts')
+def gen_route(folder: str, ignore_files: list[str]):
+    for f in ignore_files:
+        if os.path.exists(folder + '/' + f):
+            os.remove(folder + '/' + f)
     shutil.rmtree(folder + '/proto', ignore_errors=True)
 
     route_files = []
@@ -62,7 +66,7 @@ def gen_route(folder: str):
                                  r'typeof(Proto.\1)', content)
 
             content = "\n".join([ll.rstrip()
-                                for ll in content.splitlines() if ll.strip()])
+                                 for ll in content.splitlines() if ll.strip()])
 
             fp = fp[:fp.rfind('.')] + '.cs'
             with open(fp, 'w', encoding='utf-8') as f:
@@ -118,28 +122,29 @@ def gen_structs(route_files: list, path: str):
         f.writelines(lines)
 
 
-def deal_with_route(local_path: str):
+def deal_with_route(origin_route: str, project_path: str):
 
-    local_route = local_path + '/route'
+    print('deal with route:')
+
+    local_route = project_path + '/Tools/route'
 
     # clean
     shutil.rmtree(local_route, ignore_errors=True)
 
     # clone route
-    project_path = os.path.dirname(local_path)
-    origin_route = os.path.dirname(project_path) + '/route/src'
+    origin_route_src = origin_route + '/src'
 
     # copy route
-    copy_file(origin_route, local_route,
-              size_check_only=False, extensions=['ts'], quiet=True)
+    copy_files(origin_route_src, local_route, ['ts'], [], False, True)
 
+    ignore_files = ['index.ts', 'Cmd.ts', 'Structs.ts',
+                    'RouteBase.ts', 'MarkRoutes.ts', 'Cmd.cs', 'Structs.cs', 'RouteBase.cs']
     # gen route
-    route_files = gen_route(local_route)
+    route_files = gen_route(local_route, ignore_files)
 
     # copy cs
-    script_route = os.path.dirname(local_path) + '/Assets/Plugins/Route'
-    copy_file(local_route, script_route,
-              size_check_only=False, extensions=['cs'], quiet=True)
+    script_route = project_path + '/Assets/Plugins/Route'
+    copy_files(local_route, script_route, ['cs'], ignore_files)
 
     # gen structs
     gen_structs(route_files, os.path.join(script_route, 'Structs.cs'))
@@ -147,31 +152,151 @@ def deal_with_route(local_path: str):
     # clean
     shutil.rmtree(local_route, ignore_errors=True)
 
+    print('')
 
-def deal_with_configs(local_path: str):
 
-    local_configs = os.path.dirname(
-        local_path) + '/Assets/Resources/Configs'
-    if os.path.exists(local_configs):
-        shutil.rmtree(local_configs)
-    os.makedirs(local_configs, exist_ok=True)
+def file_md5(path: str) -> str:
+    with open(path, "rb") as f:
+        file_hash = hashlib.md5()
+        while chunk := f.read(8192):
+            file_hash.update(chunk)
+
+    # print(file_hash.digest())
+    return file_hash.hexdigest()  # to get a printable str instead of bytes
+
+
+def mkdir_p(path: str, no_log: bool = False):
+    if path is None or len(path) == 0:
+        return
+
+    if not os.path.isdir(path):
+        if no_log == False:
+            print("make dir: " + path)
+        os.makedirs(path, exist_ok=True)
+
+
+def file_equal(a: str, b: str) -> bool:
+
+    if os.path.isfile(a) != os.path.isfile(b):
+        return False
+
+    if os.stat(a).st_size != os.stat(b).st_size:
+        return False
+
+    return file_md5(a) == file_md5(b)
+
+
+def copy_files(folder_src: str, folder_des: str, exts: list[str], ignore_files: list[str] = [], delete_des: bool = False, no_log: bool = False):
+    if no_log == False:
+        if exts is None:
+            print('copy all files from \n\t' +
+                  folder_src + '\nto \n\t' + folder_des)
+        else:
+            print('copy ' + str(exts) + ' files from \n\t' +
+                  folder_src + '\nto \n\t' + folder_des)
+    relative_des_files = []
+    for root, dirs, files in os.walk(folder_des):
+        for fn in files:
+            fpath = os.path.join(root, fn)
+            if fpath.endswith('.DS_Store'):
+                continue
+
+            # Do not copy server only files
+            if fpath.count('/ServerOnly/') > 0:
+                continue
+
+            if os.path.isfile(fpath):
+                fextension = fn[fn.rfind('.') + 1:]
+                if (exts is None) or fextension in exts:
+                    relative_path = fpath[len(folder_des) + 1:]
+                    if relative_path in ignore_files:
+                        continue
+                    relative_des_files.append(relative_path)
+
+    relative_files = []
+    for root, dirs, files in os.walk(folder_src):
+        for fn in files:
+            fpath = os.path.join(root, fn)
+            if fpath.endswith('.DS_Store'):
+                continue
+
+            # Do not copy server only files
+            if fpath.count('/ServerOnly/') > 0:
+                continue
+
+            if os.path.isfile(fpath):
+                fextension = fn[fn.rfind('.') + 1:]
+                if (exts is None) or fextension in exts:
+                    relative_path = fpath[len(folder_src) + 1:]
+                    if relative_path in ignore_files:
+                        continue
+                    relative_files.append(relative_path)
+
+    for relative_path in relative_files:
+        src_path = os.path.join(folder_src, relative_path)
+        des_path = os.path.join(folder_des, relative_path)
+        if file_equal(src_path, des_path):
+            if relative_path in relative_des_files:
+                relative_des_files.remove(relative_path)
+            # print('check passed: ' + src_path + ' -> ' + des_path)
+            continue
+
+        if relative_path in relative_des_files:
+            relative_des_files.remove(relative_path)
+
+        mkdir_p(os.path.dirname(des_path), no_log=no_log)
+        if os.path.isfile(des_path):
+            os.remove(des_path)
+        if no_log == False:
+            print('copy: ' + relative_path)
+        shutil.copy(src_path, des_path)
+
+    if len(relative_des_files) > 0:
+        if no_log == False:
+            print('files in des folder not in src folder:')
+        for p in relative_des_files:
+            if p in ignore_files:
+                continue
+            p = os.path.join(folder_des, p)
+            if delete_des:
+                if no_log == False:
+                    print('\t' + p + ' deleted')
+                os.remove(p)
+            else:
+                if no_log == False:
+                    print('\t' + p)
+
+
+def deal_with_configs(origin_proto: str, project_path: str):
+
+    print('deal with configs:')
+
+    local_configs = project_path + '/Assets/Configs'
+    if not os.path.exists(local_configs):
+        os.makedirs(local_configs, exist_ok=True)
+    # delete_files_in_folder(local_configs, ['bytes'])
 
     # clone route
-    project_path = os.path.dirname(local_path)
-    origin_configs = os.path.dirname(
-        project_path) + '/proto/generated/bytes'
+    origin_configs = origin_proto + '/generated/bytes'
 
     # copy route
-    copy_file(origin_configs, local_configs,
-              size_check_only=False, extensions=['bytes'], quiet=True)
+    copy_files(origin_configs, local_configs, ['bytes'], [], True)
+
+    print('')
 
 
 def main():
     local_path = os.getcwd()
 
-    deal_with_proto(local_path)
-    deal_with_route(local_path)
-    deal_with_configs(local_path)
+    project_path = os.path.dirname(local_path)
+    parent_path = os.path.dirname(project_path)
+
+    origin_proto = os.path.join(parent_path, 'proto')
+    origin_route = os.path.join(parent_path,  'route')
+
+    deal_with_proto(origin_proto, project_path)
+    deal_with_route(origin_route, project_path)
+    deal_with_configs(origin_proto, project_path)
 
     print('Done')
 

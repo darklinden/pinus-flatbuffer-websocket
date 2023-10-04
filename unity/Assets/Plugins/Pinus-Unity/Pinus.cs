@@ -1,6 +1,7 @@
 using System;
 using PinusUnity;
 using Google.FlatBuffers;
+using Cysharp.Threading.Tasks;
 
 public static class Pinus
 {
@@ -23,9 +24,17 @@ public static class Pinus
         if (Network != null) Network.SendMessage(requestId, route, msg);
     }
 
-    public static void Request(string route, ByteBuffer msg = null, Action<ByteBuffer> cb = null)
+    public static async UniTask<ByteBuffer> AsyncRequest(string route, FlatBufferBuilder builder = null)
     {
-        if (Network != null) Network.Request(route, msg, cb);
+        ByteBuffer result = null;
+        if (Network != null)
+        {
+            result = await Network.AsyncRequest(route, builder);
+        }
+
+        if (builder != null) builder.Clear();
+
+        return result;
     }
 
     public static void Notify(string route, ByteBuffer data)

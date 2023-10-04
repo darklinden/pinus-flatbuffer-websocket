@@ -1,20 +1,15 @@
 namespace XPool
 {
-    public struct PoolCounter
+    public class PoolCounter
     {
         public int Power;
         public int MaxCount;
 
-        public static PoolCounter Start
+        public const int MaxPower = 8;
+
+        public static PoolCounter CreateStart()
         {
-            get
-            {
-                return new PoolCounter
-                {
-                    Power = 3,
-                    MaxCount = 8
-                };
-            }
+            return new PoolCounter { Power = 3, MaxCount = 8 };
         }
     }
 }

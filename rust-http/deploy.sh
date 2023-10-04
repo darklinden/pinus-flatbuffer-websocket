@@ -6,8 +6,14 @@ PROJECT_DIR="$(realpath "${BASEDIR}")"
 IMAGE_NAME="rust-http"
 
 # rm docker containers and images if exists
-docker rm -f $(docker ps -a -q -f name=$IMAGE_NAME)
-docker rmi -f $(docker images -q $IMAGE_NAME)
+CONTAINERS=$(docker ps -a -q -f name=$IMAGE_NAME)
+if [ -n "$CONTAINERS" ]; then
+    docker rm -f $CONTAINERS
+fi
+IMAGES=$(docker images -q $IMAGE_NAME)
+if [ -n "$IMAGES" ]; then
+    docker rmi -f $IMAGES
+fi
 rm -f ./$IMAGE_NAME.tar.gz
 
 # build image

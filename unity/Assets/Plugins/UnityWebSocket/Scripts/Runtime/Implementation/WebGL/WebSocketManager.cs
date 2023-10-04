@@ -1,4 +1,4 @@
-#if UNITY_WEBGL && (!UNITY_EDITOR || UNITY_WEBSOCKET_WEBGL_IMPL) 
+#if UNITY_WEBGL && (!UNITY_EDITOR || UNITY_WEBSOCKET_WEBGL_IMPL)
 // WebGL平台 且 (不在编辑器下, 或强制指定使用WebGL实现), 使用此实现
 
 using System;
@@ -19,7 +19,6 @@ namespace UnityWebSocket
         /* Delegates */
         public delegate void OnOpenCallback(int instanceId);
         public delegate void OnMessageCallback(int instanceId, IntPtr msgPtr, int msgSize);
-        public delegate void OnMessageStrCallback(int instanceId, IntPtr msgStrPtr);
         public delegate void OnErrorCallback(int instanceId, IntPtr errorPtr);
         public delegate void OnCloseCallback(int instanceId, int closeCode, IntPtr reasonPtr);
 

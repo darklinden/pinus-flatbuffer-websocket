@@ -1,0 +1,8 @@
+.gitignore
+.dockerignore
+.env
+node_modules
+dist
+.vscode
+deploy.sh
+ReadMe.md

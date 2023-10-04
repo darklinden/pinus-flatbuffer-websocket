@@ -4,8 +4,8 @@ using System.Reflection;
 public class Structs
 {
     // --- property routes begin ---
-    protected FooBar m_FooBar = null;
-    public static FooBar FooBar { get => Instance.m_FooBar; }
+    protected Home m_Home = null;
+    public static Home Home { get => Instance.m_Home; }
     // --- property routes end ---
 
     // --- instance begin ---
@@ -23,7 +23,7 @@ public class Structs
     Structs()
     {
         // --- instantiate routes begin ---
-        m_FooBar = new FooBar();
+        m_Home = new Home();
         // --- instantiate routes end ---
     }
 

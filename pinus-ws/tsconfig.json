@@ -36,6 +36,7 @@
   "exclude": [
     "./dist/**/*.*",
     "node_modules",
-    "tools"
+    "tools",
+    "dependencies"
   ]
 }

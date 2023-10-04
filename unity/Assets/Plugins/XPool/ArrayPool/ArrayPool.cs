@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 using System.Collections.Generic;
 using UnityEngine.Profiling;
 
@@ -18,7 +17,7 @@ namespace XPool
             m_StackCounters = new PoolCounter[18];
             for (int i = 0; i < m_Pool.Length; i++)
             {
-                m_StackCounters[i] = PoolCounter.Start;
+                m_StackCounters[i] = PoolCounter.CreateStart();
             }
         }
 
@@ -26,7 +25,7 @@ namespace XPool
         /// The array length is not always accurate.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public T[] Rent(int minimumLength)
+        public T[] Get(int minimumLength)
         {
             if (minimumLength < 0) minimumLength = 0;
 
@@ -43,18 +42,19 @@ namespace XPool
                 if (m_Pool[poolIndex] == null)
                 {
                     Profiler.BeginSample("ArrayPool.Rent Alloc Stack");
-                    m_Pool[poolIndex] = new Queue<T[]>(m_StackCounters[poolIndex].MaxCount);
+                    m_Pool[poolIndex] = new Queue<T[]>();
                     Profiler.EndSample();
                 }
 
-                Queue<T[]> pool = m_Pool[poolIndex];
+                var pool = m_Pool[poolIndex];
 
                 if (pool.Count != 0)
                 {
 #if XPOOL_LOG
                     Log.D("ArrayPool.Rent Use Pool", pool.Count);
 #endif
-                    return pool.Dequeue();
+                    var array = pool.Dequeue();
+                    return array;
                 }
             }
 
@@ -98,23 +98,37 @@ namespace XPool
             if (m_Pool[poolIndex] == null)
             {
                 Profiler.BeginSample("ArrayPool.Return Alloc Stack");
-                m_Pool[poolIndex] = new Queue<T[]>(m_StackCounters[poolIndex].MaxCount);
+                m_Pool[poolIndex] = new Queue<T[]>();
                 Profiler.EndSample();
             }
 
-            Queue<T[]> pool = m_Pool[poolIndex];
+            var pool = m_Pool[poolIndex];
 
             if (clearArray)
             {
                 Array.Clear(array, 0, array.Length);
             }
 
-            var resized = RuntimeHelpers.BeforePoolPushResize(pool, ref m_StackCounters[poolIndex]);
-            pool.Enqueue(array);
+            RuntimeHelpers.BeforePoolPushResize(pool, m_StackCounters[poolIndex], out bool resized, out bool reachMaximum);
 
-            if (resized)
+            if (!resized)
             {
-                Log.W("ArrayPool Return Out Of Stack Trigger Resize", typeof(T).Name, array.Length, m_StackCounters[poolIndex].MaxCount);
+                if (reachMaximum)
+                {
+                    // If the pool is full, we will not return the array to the pool.
+                    Log.W("ArrayPool Return Out Of Stack", typeof(T).Name, array.Length, m_StackCounters[poolIndex].MaxCount);
+                    array = null;
+                }
+                else
+                {
+                    pool.Enqueue(array);
+                }
+            }
+            else
+            {
+#if XPOOL_LOG
+                Log.D("ArrayPool Resize", typeof(T).Name, array.Length, m_StackCounters[poolIndex].MaxCount);
+#endif
             }
         }
 

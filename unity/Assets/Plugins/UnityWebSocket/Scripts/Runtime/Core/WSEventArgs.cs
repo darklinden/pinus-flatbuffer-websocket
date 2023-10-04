@@ -47,7 +47,7 @@ namespace UnityWebSocket
                 Data.Dispose();
                 Data = null;
             }
-            AnyPool<WSEventArgs>.Release(this);
+            AnyPool<WSEventArgs>.Return(this);
         }
     }
 }

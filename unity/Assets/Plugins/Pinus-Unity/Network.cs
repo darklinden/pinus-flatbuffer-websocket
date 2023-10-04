@@ -1,11 +1,9 @@
+using System.Collections;
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using Google.FlatBuffers;
-using SimpleJSON;
-using XPool;
-using UnityWebSocket;
-
+using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 namespace PinusUnity
 {
@@ -82,6 +80,7 @@ namespace PinusUnity
         protected System.Collections.Generic.Dictionary<int, int> m_RequestRouteMap = new System.Collections.Generic.Dictionary<int, int>(64);
         // callback from request id
         protected System.Collections.Generic.Dictionary<int, Action<ByteBuffer>> m_RequestCallbackMap = new System.Collections.Generic.Dictionary<int, Action<ByteBuffer>>();
+        protected System.Collections.Generic.Dictionary<int, AutoResetUniTaskCompletionSource<ByteBuffer>> m_RequestTasks = new System.Collections.Generic.Dictionary<int, AutoResetUniTaskCompletionSource<ByteBuffer>>();
 
         protected System.Collections.Generic.Dictionary<string, int> m_RouteMap = null;
         protected System.Collections.Generic.Dictionary<int, string> m_RouteMapBack = null;
@@ -117,6 +116,9 @@ namespace PinusUnity
 
             ResetReconnect();
 
+#if PINUS_LOG
+            Log.D("OnOpen SendHandshake");
+#endif
             Client.SendBuffer(HandshakeBuffer);
         }
 
@@ -124,16 +126,15 @@ namespace PinusUnity
         {
             ProcessPackage(data);
 
+            // 发现特殊情况下会导致服务器心跳超时，所以这里不更新心跳时间
             // new package arrived, update the heartbeat timeout
-#if PINUS_LOG
-            Log.D("OnRecv RenewHeartbeatTimeout");
-#endif
-            RenewHeartbeatTimeout();
+            // RenewHeartbeatTimeout();
         }
 
         public void OnError(string err)
         {
             HandshakeEnded = false;
+            Log.W("Pinus OnError:", Url, err);
             EventBus.Instance.Error(Url, err);
         }
 
@@ -178,24 +179,41 @@ namespace PinusUnity
 
         void OnHandshake(byte[] data, int offset, int length)
         {
+#if PINUS_LOG
+            Log.D("OnHandshake", length);
+#endif
             var str = Protocol.StrDecode(data, offset, length);
-            var json = JSON.Parse(str);
+#if PINUS_LOG
+            Log.D("OnHandshake", str);
+#endif
+            var json = LitJson.JsonMapper.ToObject(str);
+            if (json == null || json.IsObject == false)
+            {
+                EventBus.Instance.HandshakeError(Url, "handshake decode fail");
+                return;
+            }
 
-            var code = json.HasKey("code") ? json["code"].AsInt : -1;
+            var code = json.ContainsKey("code") ? (int)json["code"] : 0;
             if (code == RES_OLD_CLIENT)
             {
+#if PINUS_LOG
+                Log.D("OnHandshake RES_OLD_CLIENT");
+#endif
                 EventBus.Instance.HandshakeError(Url, "client version not fullfill");
                 return;
             }
 
             if (code != RES_OK)
             {
+#if PINUS_LOG
+                Log.D("OnHandshake failed code:", code);
+#endif
                 EventBus.Instance.HandshakeError(Url, "handshake fail");
                 return;
             }
 
-            var sys = json.HasKey("sys") ? json["sys"] : null;
-            var heartbeat = sys != null && sys.HasKey("heartbeat") ? sys["heartbeat"].AsInt : 0;
+            var sys = json.ContainsKey("sys") ? json["sys"] : null;
+            var heartbeat = sys != null && sys.ContainsKey("heartbeat") ? int.Parse(sys["heartbeat"].ToString()) : 0;
 
             if (heartbeat != 0)
             {
@@ -209,15 +227,15 @@ namespace PinusUnity
                 HeartbeatTimeout = 0;
             }
 
-            var dict = sys != null && sys.HasKey("dict") ? sys["dict"] : null;
+            var dict = sys != null && sys.ContainsKey("dict") ? sys["dict"] : null;
 
-            if (dict != null && dict.IsObject)
+            if (dict != null)
             {
                 m_RouteMap = new System.Collections.Generic.Dictionary<string, int>();
                 m_RouteMapBack = new System.Collections.Generic.Dictionary<int, string>();
-                foreach (var key in (dict as JSONObject).Keys)
+                foreach (var key in dict.Keys)
                 {
-                    var value = dict[key].AsInt;
+                    var value = int.Parse(dict[key].ToString());
                     m_RouteMap[key] = value;
                     m_RouteMapBack[value] = key;
                 }
@@ -333,6 +351,13 @@ namespace PinusUnity
                 {
                     m_RequestCallbackMap.Remove(id);
                     cb(bb);
+                    return;
+                }
+
+                if (m_RequestTasks.TryGetValue(id, out var completionSource))
+                {
+                    m_RequestTasks.Remove(id);
+                    completionSource.TrySetResult(bb);
                     return;
                 }
             }
@@ -472,6 +497,30 @@ namespace PinusUnity
                 m_RequestCallbackMap.Add(requestId, cb);
             }
             m_RequestRouteMap.Add(requestId, routeCode);
+        }
+
+        public async UniTask<ByteBuffer> AsyncRequest(string route, FlatBufferBuilder builder)
+        {
+            if (String.IsNullOrEmpty(route))
+            {
+                Log.E("Pinus Network AsyncRequest Error: Empty Route");
+                return null;
+            }
+
+            var requestId = GenerateUniqueRequestId();
+            var routeCode = m_RouteMap[route];
+
+            var completionSource = AutoResetUniTaskCompletionSource<ByteBuffer>.Create();
+
+            m_RequestTasks.Add(requestId, completionSource);
+
+            SendMessage(requestId, routeCode, builder?.DataBuffer);
+
+            builder?.Clear();
+
+            m_RequestRouteMap.Add(requestId, routeCode);
+
+            return await completionSource.Task;
         }
 
         public void Notify(string route, ByteBuffer data)

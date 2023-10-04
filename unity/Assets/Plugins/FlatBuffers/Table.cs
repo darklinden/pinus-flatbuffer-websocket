@@ -65,7 +65,11 @@ namespace Google.FlatBuffers
         // Create a .NET String from UTF-8 data stored inside the flatbuffer.
         public string __string(int offset)
         {
-            offset += bb.GetInt(offset);
+            int stringOffset = bb.GetInt(offset);
+            if (stringOffset == 0)
+                return null;
+
+            offset += stringOffset;
             var len = bb.GetInt(offset);
             var startPos = offset + sizeof(int);
             return bb.GetStringUTF8(startPos, len);
@@ -132,7 +136,7 @@ namespace Google.FlatBuffers
         public T[] __vector_as_array<T>(int offset)
             where T : struct
         {
-            if(!BitConverter.IsLittleEndian)
+            if (!BitConverter.IsLittleEndian)
             {
                 throw new NotSupportedException("Getting typed arrays on a Big Endian " +
                     "system is not support");
@@ -180,7 +184,8 @@ namespace Google.FlatBuffers
             var startPos_1 = offset_1 + sizeof(int);
             var startPos_2 = offset_2 + sizeof(int);
             var len = Math.Min(len_1, len_2);
-            for(int i = 0; i < len; i++) {
+            for (int i = 0; i < len; i++)
+            {
                 byte b1 = bb.Get(i + startPos_1);
                 byte b2 = bb.Get(i + startPos_2);
                 if (b1 != b2)
@@ -197,7 +202,8 @@ namespace Google.FlatBuffers
             var len_2 = key.Length;
             var startPos_1 = offset_1 + sizeof(int);
             var len = Math.Min(len_1, len_2);
-            for (int i = 0; i < len; i++) {
+            for (int i = 0; i < len; i++)
+            {
                 byte b = bb.Get(i + startPos_1);
                 if (b != key[i])
                     return b - key[i];

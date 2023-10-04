@@ -1,14 +1,10 @@
-﻿#if !UNITY_WEBGL || (UNITY_EDITOR && !UNITY_WEBSOCKET_WEBGL_IMPL) 
+﻿#if !UNITY_WEBGL || (UNITY_EDITOR && !UNITY_WEBSOCKET_WEBGL_IMPL)
 // 非WebGL平台使用此实现 或 编辑器下, 且未指定使用WebGL实现, 使用此实现
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Net.WebSockets;
-using System.IO;
+using Cysharp.Threading.Tasks;
 using System.Threading;
-using System.Threading.Tasks;
-using XPool;
 
 namespace UnityWebSocket
 {
@@ -65,7 +61,7 @@ namespace UnityWebSocket
             this.SubProtocols = subProtocols;
         }
 
-        public async void ConnectAsync()
+        public void ConnectAsync()
         {
             System.Net.ServicePointManager.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
             // System.Net.ServicePointManager.ServerCertificateValidationCallback =
@@ -90,7 +86,7 @@ namespace UnityWebSocket
                     socket.Options.AddSubProtocol(protocol);
                 }
             }
-            await ConnectTask();
+            ConnectTask().Forget();
         }
 
         public void CloseAsync()
@@ -100,7 +96,7 @@ namespace UnityWebSocket
         }
 
 
-        private async Task ConnectTask()
+        private async UniTask ConnectTask()
         {
 #if UNITY_WEBSOCKET_LOG
             Log.D("Connect Task Begin ...");
@@ -160,12 +156,11 @@ namespace UnityWebSocket
             {
                 isSendTaskRunning = true;
                 sendQueue.Enqueue(new SendTaskStruct { Type = type, Buffer = buffer });
-                // Task.Run(SendTask);
-                SendTask();
+                SendTask().Forget();
             }
         }
 
-        private async void SendTask()
+        private async UniTaskVoid SendTask()
         {
 #if UNITY_WEBSOCKET_LOG
             Log.D("Send Task Begin ...");
@@ -218,7 +213,7 @@ namespace UnityWebSocket
 #endif
         }
 
-        private async Task ReceiveTask()
+        private async UniTask ReceiveTask()
         {
 #if UNITY_WEBSOCKET_LOG
             Log.D("Receive Task Begin ...");

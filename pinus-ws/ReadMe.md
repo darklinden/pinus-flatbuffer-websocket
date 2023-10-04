@@ -44,8 +44,3 @@
     ```bash
     npx prisma generate
     ```
-    
-
-
-    
-    

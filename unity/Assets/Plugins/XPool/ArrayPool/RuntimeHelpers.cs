@@ -5,16 +5,27 @@ namespace XPool
 {
     internal static class RuntimeHelpers
     {
-        public static bool BeforePoolPushResize<T>(System.Collections.Generic.Queue<T> pool, ref PoolCounter counter)
+        public static void BeforePoolPushResize<T>(
+            System.Collections.Generic.Queue<T> pool,
+            PoolCounter counter,
+            out bool resized,
+            out bool reachMaximum)
         {
-            bool resized = false;
+            resized = false;
+            reachMaximum = false;
             if (pool.Count + 1 > counter.MaxCount)
             {
-                counter.Power++;
-                counter.MaxCount = 1 << counter.Power;
-                resized = true;
+                if (counter.Power < PoolCounter.MaxPower)
+                {
+                    counter.Power++;
+                    counter.MaxCount = 1 << counter.Power;
+                    resized = true;
+                }
+                else
+                {
+                    reachMaximum = true;
+                }
             }
-            return resized;
         }
 
         public static bool IsWellKnownNoReferenceContainsType<T>()

@@ -48,7 +48,7 @@ namespace PinusUnity
 
             try
             {
-                m_Ws = new WebSocket(this.Url);
+                m_Ws = new WebSocket(this.Url, "binary");
                 m_Ws.OnOpen += OnOpen;
                 m_Ws.OnClose += OnClose;
                 m_Ws.OnError += OnError;
@@ -115,6 +115,9 @@ namespace PinusUnity
 
         public void SendBuffer(XPool.XBuffer buffer)
         {
+#if PINUS_LOG
+            Log.D("Pinus Client SendBuffer", buffer.Length);
+#endif
             if (m_Ws != null)
             {
                 try
@@ -147,14 +150,13 @@ namespace PinusUnity
 
             if (m_Ws != null)
             {
-                m_Ws.CloseAsync();
                 m_Ws.OnOpen -= OnOpen;
                 m_Ws.OnClose -= OnClose;
                 m_Ws.OnError -= OnError;
                 m_Ws.OnMessage -= OnMessage;
+                m_Ws.CloseAsync();
                 m_Ws = null;
             }
-            m_Ws = null;
         }
     }
 }

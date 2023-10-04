@@ -820,7 +820,7 @@ namespace XPool
 
             m_Array = null;
             m_Count = 0;
-            AnyPool<XList<T>>.Release(this);
+            AnyPool<XList<T>>.Return(this);
         }
     }
 }
