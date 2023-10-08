@@ -1,0 +1,23 @@
+[package]
+name = "websocket-chat"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+actix = "0.13"
+actix-codec = "0.5"
+actix-files = "0.6"
+actix-web = "4.4"
+actix-web-actors = "4.1"
+
+byteorder = "1.2"
+env_logger = "0.10"
+futures-util = { version = "0.3.17", features = ["std", "sink"] }
+log = "0.4"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.24.2", features = ["full"] }
+tokio-util = "0.7.4"
+tokio-stream = "0.1.8"
+dotenv = "0.15.0"
