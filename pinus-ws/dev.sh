@@ -11,18 +11,24 @@ echo "Building proto..."
 cd "${PROTO_DIR}" || exit
 yarn install
 yarn run build
-rm -rf ./node_modules
 
 echo "Building route..."
 cd "${ROUTE_DIR}" || exit
 yarn install
 yarn run build
-rm -rf ./node_modules
 
-echo "Building deps..."
+echo "Building project..."
 cd "${PROJECT_DIR}" || exit
 yarn install
 yarn add ../route
 
+echo "Building..."
+yarn tsc -p tsconfig.json
+
 echo "Copying bytes..."
-node ./tools/copy --from="../proto/generated/bytes" --to="./config/bytes" --extension=bytes
+yarn ts-node ./tools/Copy --from "$PROTO_DIR/generated/bytes" --to "$PROJECT_DIR/config/bytes" --extension bytes
+
+echo "Copying config..."
+yarn ts-node ./tools/Copy --from "./config" --to "./dist/config"
+
+node ./dist/app

@@ -1,7 +1,7 @@
-import path = require("path");
-import process = require("process");
 import { promises as fs } from "fs";
 import { paths } from "./Paths"
+import { fileExist } from "../tools/FileUtil";
+import * as path from "path";
 
 export async function Initialize() {
 
@@ -32,15 +32,7 @@ export async function Initialize() {
     // 生成文件路径 重建以清理
     const generated_folder = path.join(root, 'generated')
 
-    let exists = false;
-    try {
-        await fs.access(generated_folder)
-        exists = true;
-    } catch (error) {
-        exists = false;
-    }
-
-    if (exists) {
+    if (await fileExist(generated_folder)) {
         console.log('清理生成文件夹');
         await fs.rm(generated_folder, { recursive: true, force: true });
     }

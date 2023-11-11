@@ -17,11 +17,11 @@
     },
     "scripts": {
         "watch": "tsc --watch --noEmit --noErrorTruncation --pretty",
-        "build": "npm run gen-proto-index && npm run gen-routes && rm -rf ./dist && rm -rf ./types && tsc",
-        "gen-routes": "node ./tools/gen-routes",
-        "gen-proto-index": "rm -rf ./src/proto && cp -r ../proto/generated/ts/proto src/proto && node ./tools/wrap-proto-index"
+        "build": "npx ts-node ./tools/Build.ts"
     },
     "devDependencies": {
-        "typescript": "^4.7.4"
+        "typescript": "^4.7.4",
+        "@types/node": "16.7.13",
+        "ts-node": "^10.9.1"
     }
 }

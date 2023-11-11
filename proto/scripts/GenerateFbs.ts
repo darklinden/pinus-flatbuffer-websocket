@@ -1,13 +1,17 @@
-import fs = require('fs');
-import path = require("path");
-
+import { promises as fs } from 'fs';
+import * as path from "path";
 import { paths, IPathStruct } from "./Paths"
 import { CsvUtil } from "./CsvUtil";
 import { BaseDataTypes } from "./BaseDataTypes";
-import { walkDirSync } from './WalkDirSync';
 import { exit } from 'process';
+import { fileExist, walkDir } from "../tools/FileUtil";
 
-function resolve_csv_fbs_path(file_path: string): [string, string] {
+interface IResolveCsvFbsPathResult {
+    name: string;
+    fbs_path: string;
+}
+
+async function resolveCsvFbsPath(file_path: string): Promise<IResolveCsvFbsPathResult> {
     let name = path.basename(file_path).split('.')[0];
     let fbs_name = null;
 
@@ -32,7 +36,7 @@ function resolve_csv_fbs_path(file_path: string): [string, string] {
         }
 
         // 检查复用类
-        const content = fs.readFileSync(file_path, 'utf-8');
+        const content = await fs.readFile(file_path, 'utf-8');
         const lines = content.split('\n');
         if (lines[0].startsWith('#class')) {
             fbs_name = lines[0].split(' ')[1];
@@ -45,14 +49,14 @@ function resolve_csv_fbs_path(file_path: string): [string, string] {
     let relative_folder = folder.slice(paths.csv.length + 1);
     let fbs_path = path.join(paths.fbs, relative_folder, fbs_name + '.fbs');
 
-    return [name, fbs_path];
+    return { name, fbs_path };
 }
 
-function csv_to_fbs_enum(file_path: string, name: string): string {
+async function csv2FbsEnum(file_path: string, name: string): Promise<string> {
 
     console.log('导出 csv 为枚举', file_path, name);
 
-    let rows = CsvUtil.loadDataSync(file_path);
+    let rows = await CsvUtil.loadDataSync(file_path);
 
     let enum_value_type = 'byte';
     if (rows[0][0].startsWith('#int')) {
@@ -78,11 +82,16 @@ function csv_to_fbs_enum(file_path: string, name: string): string {
     return enum_str;
 }
 
-function csv_to_fbs_struct(file_path: string, name: string): [string, string[]] {
+interface ICsv2FbsStructResult {
+    struct: string;
+    includes: string[];
+}
+
+async function csv2FbsStruct(file_path: string, name: string): Promise<ICsv2FbsStructResult> {
 
     console.log('导出 csv 文件为结构体', file_path, name);
 
-    let rows = CsvUtil.loadDataSync(file_path);
+    let rows = await CsvUtil.loadDataSync(file_path);
 
     let includes: string[] = [];
 
@@ -111,14 +120,20 @@ function csv_to_fbs_struct(file_path: string, name: string): [string, string[]] 
         table_str += `    ${row[0]}:${row[1]}; // ${comment} \n`;
     }
     table_str += '}\n';
-    return [table_str, includes];
+    return { struct: table_str, includes: includes };
 }
 
-function csv_to_fbs_table(file_path: string, name: string): [string, string, string[]] {
+interface ICsv2FbsTableResult {
+    table_name: string;
+    table_struct: string;
+    includes: string[];
+}
+
+async function csv2FbsTable(file_path: string, name: string): Promise<ICsv2FbsTableResult> {
 
     console.log('\n导出 csv 文件为表', file_path, name);
 
-    let rows = CsvUtil.loadDataSync(file_path);
+    let rows = await CsvUtil.loadDataSync(file_path);
     let header: string[];
     let reuse_class = null;
     for (const row of rows) {
@@ -193,10 +208,10 @@ function csv_to_fbs_table(file_path: string, name: string): [string, string, str
 
     table_str += `root_type ${name};\n`;
 
-    return [name, table_str, includes];
+    return { table_name: name, table_struct: table_str, includes: includes };
 }
 
-export function get_fbs_path(
+export function getFbsPath(
     name: string,
     enums: { [key: string]: IPathStruct },
     structs: { [key: string]: IPathStruct },
@@ -212,12 +227,12 @@ export function get_fbs_path(
         return null;
 }
 
-export function generate_fbs(): {
+export async function generateFbs(): Promise<{
     enums: { [key: string]: IPathStruct }
     structs: { [key: string]: IPathStruct }
     tables: { [key: string]: IPathStruct }
-} {
-    const csv_path_list = walkDirSync(paths.csv, '.csv')
+}> {
+    const csv_path_list = await walkDir(paths.csv, '.csv')
     csv_path_list.sort((x: string, y: string): number => {
 
         const x_name = path.basename(x, 'csv');
@@ -265,7 +280,7 @@ export function generate_fbs(): {
 
         // 生成枚举 fbs, 枚举文件必须为枚举名 + Enum
         if (path.basename(csv_path).endsWith('Enum.csv')) {
-            const [name, fbs_path] = resolve_csv_fbs_path(csv_path);
+            const { name, fbs_path } = await resolveCsvFbsPath(csv_path);
             if (fbs_all_name_list.indexOf(name) != -1)
                 throw new Error(`重复的枚举名: ${name}`);
             enums[name] = { csv: csv_path, fbs: fbs_path };
@@ -274,7 +289,7 @@ export function generate_fbs(): {
 
         // 生成结构体 fbs, 结构体文件必须为结构体名 + Struct
         else if (path.basename(csv_path).endsWith('Struct.csv')) {
-            const [name, fbs_path] = resolve_csv_fbs_path(csv_path);
+            const { name, fbs_path } = await resolveCsvFbsPath(csv_path);
             if (fbs_all_name_list.indexOf(name) != -1)
                 throw new Error(`重复的结构体名: ${name}`);
             structs[name] = { csv: csv_path, fbs: fbs_path };
@@ -283,7 +298,7 @@ export function generate_fbs(): {
 
         // 生成表 fbs, 表文件必须为表名 + Table
         else if (path.basename(csv_path).endsWith('Table.csv')) {
-            const [name, fbs_path] = resolve_csv_fbs_path(csv_path);
+            const { name, fbs_path } = await resolveCsvFbsPath(csv_path);
             if (fbs_all_name_list.indexOf(name) != -1)
                 throw new Error(`重复的表名: ${name}`);
             tables[name] = { csv: csv_path, fbs: fbs_path };
@@ -300,22 +315,22 @@ export function generate_fbs(): {
     for (const name in enums) {
         const p = enums[name];
         let enum_fbs = "namespace Proto;\n\n";
-        enum_fbs += csv_to_fbs_enum(p.csv, name);
-        fs.mkdirSync(path.dirname(p.fbs), { recursive: true });
-        fs.writeFileSync(p.fbs, enum_fbs, 'utf8');
+        enum_fbs += await csv2FbsEnum(p.csv, name);
+        await fs.mkdir(path.dirname(p.fbs), { recursive: true });
+        await fs.writeFile(p.fbs, enum_fbs, 'utf8');
     }
 
     // 生成结构体 fbs
     for (const name in structs) {
         const p = structs[name];
 
-        const [struct_, includes] = csv_to_fbs_struct(p.csv, name);
+        const { struct, includes } = await csv2FbsStruct(p.csv, name);
         const fbs_dir = path.dirname(p.fbs);
 
         let struct_fbs: string = '';
         for (const include of includes) {
             // console.log('include', include);
-            var include_path = get_fbs_path(include, enums, structs, tables)
+            var include_path = getFbsPath(include, enums, structs, tables)
             if (!include_path) {
                 throw new Error(`结构体 ${name} 引用了不存在的类型 ${include}`);
             }
@@ -329,10 +344,10 @@ export function generate_fbs(): {
 
         struct_fbs += "namespace Proto;\n\n";
 
-        struct_fbs += struct_;
+        struct_fbs += struct;
 
-        fs.mkdirSync(path.dirname(p.fbs), { recursive: true });
-        fs.writeFileSync(p.fbs, struct_fbs, 'utf8');
+        await fs.mkdir(path.dirname(p.fbs), { recursive: true });
+        await fs.writeFile(p.fbs, struct_fbs, 'utf8');
     }
 
     // 生成表 fbs
@@ -345,10 +360,13 @@ export function generate_fbs(): {
             name = name.split('@')[0];
         }
 
-        const [nname, table_, includes] = csv_to_fbs_table(p.csv, name);
+        const {
+            table_name,
+            table_struct,
+            includes } = await csv2FbsTable(p.csv, name);
         // 是否为复用表
-        if (nname != name) {
-            console.log(`表 ${name} 为复用表 复用 ${nname}`);
+        if (table_name != name) {
+            console.log(`表 ${name} 为复用表 复用 ${table_name}`);
         }
 
         const fbs_dir = path.dirname(p.fbs);
@@ -356,7 +374,7 @@ export function generate_fbs(): {
         let table_fbs: string = '';
         for (const include of includes) {
             // console.log('include', include);
-            var include_path = get_fbs_path(include, enums, structs, tables)
+            var include_path = getFbsPath(include, enums, structs, tables)
             if (!include_path) {
                 throw new Error(`表 ${name} 引用了不存在的类型 ${include}`);
             }
@@ -369,19 +387,19 @@ export function generate_fbs(): {
         }
 
         table_fbs += "namespace Proto;\n\n";
-        table_fbs += table_;
+        table_fbs += table_struct;
 
-        fs.mkdirSync(path.dirname(p.fbs), { recursive: true });
+        await fs.mkdir(path.dirname(p.fbs), { recursive: true });
 
-        if (fs.existsSync(p.fbs)) {
-            const old_table_fbs = fs.readFileSync(p.fbs, 'utf8');
+        if (await fileExist(p.fbs)) {
+            const old_table_fbs = await fs.readFile(p.fbs, 'utf8');
             if (old_table_fbs != table_fbs) {
-                console.error(`表 ${name} 复用表 ${nname} 发生属性变化！！！`);
+                console.error(`表 ${name} 复用表 ${table_name} 发生属性变化！！！`);
                 exit(1)
             }
         }
 
-        fs.writeFileSync(p.fbs, table_fbs, 'utf8');
+        await fs.writeFile(p.fbs, table_fbs, 'utf8');
     }
 
     return {

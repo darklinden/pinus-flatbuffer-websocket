@@ -1,30 +1,30 @@
 import fs = require('fs');
 import path = require('path');
 
-import { generate_bytes } from "./GenerateBytes";
-import { generate_code, generate_csharp_code, generate_rust_code, generate_ts_code } from "./GenerateCode";
-import { generate_fbs } from "./GenerateFbs";
-import { generate_json } from "./GenerateJson";
-import { generate_version } from './GenerateVersion';
+import { generateBytes } from "./GenerateBytes";
+import { generateCsharpCode, generateRustCode, generateTsCode } from "./GenerateCode";
+import { generateFbs } from "./GenerateFbs";
+import { generateJson } from "./GenerateJson";
+import { generateVersion } from './GenerateVersion';
 import { Initialize } from "./Initialize";
 import { paths } from "./Paths";
-import { test_bytes } from "./TestBytes";
-import { walkDirSync } from './WalkDirSync';
+import { testBytes } from "./TestBytes";
+import { walkDir } from '../tools/FileUtil';
 
-async function main() {
+export async function buildFlat() {
 
     await Initialize();
 
     console.log('========================================');
     console.log('生成 fbs 文件');
     console.log('----------------------------------------');
-    const obj = generate_fbs();
+    const obj = await generateFbs();
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('复制其他 fbs 文件');
     console.log('----------------------------------------');
-    const other_fbs = walkDirSync(paths.other_fbs, '.fbs');
+    const other_fbs = await walkDir(paths.other_fbs, '.fbs');
     for (const file_path of other_fbs) {
         const full_path = path.join(paths.other_fbs, file_path);
         const target_path = path.join(paths.fbs, file_path);
@@ -35,37 +35,35 @@ async function main() {
     console.log('========================================');
     console.log('生成代码');
     console.log('----------------------------------------');
-    generate_ts_code();
-    generate_csharp_code();
-    generate_rust_code();
+    await generateTsCode();
+    await generateCsharpCode();
+    await generateRustCode();
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('生成json');
     console.log('----------------------------------------');
-    const fbs_to_json = generate_json(obj);
+    const fbs_to_json = await generateJson(obj);
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('生成二进制数据');
     console.log('----------------------------------------');
-    const bytes_path_list = generate_bytes(fbs_to_json);
+    const bytes_path_list = await generateBytes(fbs_to_json);
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('校验二进制数据');
     console.log('----------------------------------------');
-    test_bytes(bytes_path_list);
+    await testBytes(bytes_path_list);
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('生成配置文件版本');
     console.log('----------------------------------------');
-    generate_version(bytes_path_list, path.join(paths.bytes, 'version.bytes'));
+    await generateVersion(bytes_path_list, path.join(paths.bytes, 'version.bytes'));
     console.log('========================================\n');
 
     console.log('');
     console.log('完成');
 }
-
-main();

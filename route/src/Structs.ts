@@ -6,8 +6,8 @@ import { Home } from "./Home";
 export class Structs {
 
     // --- group routes begin ---
-private m_Home: Home = null;
-public static get Home(): Home { return this.instance.m_Home; }
+    private m_Home: Home = null;
+    public static get Home(): Home { return this.instance.m_Home; }
     // --- group routes end ---
 
     // --- instance begin ---
@@ -19,7 +19,7 @@ public static get Home(): Home { return this.instance.m_Home; }
     // --- instance end ---
 
     constructor() {
-this.m_Home = new Home();
+        this.m_Home = new Home();
     }
 
     private _routs: Map<string, Cmd> = null;

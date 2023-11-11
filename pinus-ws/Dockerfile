@@ -4,27 +4,10 @@ FROM darklinden/node-with-rust:n16.20.2-r1.69.0 as builder
 WORKDIR /app
 
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
-COPY . /app/pinus-ws 
-COPY ./dependencies/proto /app/proto
-COPY ./dependencies/route /app/route
-COPY ./dependencies/jwt /app/jwt
-COPY ./dependencies/flatbuffers-js /app/flatbuffers-js
+COPY . /app
 
-WORKDIR /app/flatbuffers-js
-RUN yarn install
-RUN yarn build
-RUN rm -rf node_modules
-
-WORKDIR /app/jwt/napi-jwt
-RUN yarn install
-RUN yarn build
-RUN rm -rf node_modules
-RUN rm -rf target
-
-WORKDIR /app/pinus-ws
-RUN sh build-deps.sh
-RUN yarn prisma generate
-RUN yarn build
+WORKDIR /app
+RUN sh build.sh
 
 FROM node:16.20.2-bullseye-slim
 

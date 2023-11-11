@@ -1,20 +1,16 @@
-import { execSync } from "child_process";
-import fs = require("fs");
-import path = require("path");
-import { chdir } from "process";
+import { promises as fs } from 'fs';
 import * as crypto from 'crypto';
+import { IGenerateBytesResult } from './GenerateBytes';
 
-import { paths } from "./Paths"
 
-export function generate_version(bytes_path_list: [string, string, string][], version_path: string): void {
+export async function generateVersion(bytes_path_list: IGenerateBytesResult[], version_path: string) {
 
     const md5 = crypto.createHash('md5')
-    // .update(contents).digest("hex");
 
     const bytes = [];
 
     for (const item of bytes_path_list) {
-        let bytes_path = item[2];
+        let bytes_path = item.bytes_path;
         bytes_path = bytes_path.replace(/\.bin/g, '.bytes');
         bytes.push(bytes_path);
     }
@@ -22,11 +18,11 @@ export function generate_version(bytes_path_list: [string, string, string][], ve
     bytes.sort();
 
     for (const bytes_path of bytes) {
-        const contents = fs.readFileSync(bytes_path, 'binary');
+        const contents = await fs.readFile(bytes_path, 'binary');
         md5.update(contents);
     }
 
     const version = md5.digest("hex");
     console.log('version: ', version);
-    fs.writeFileSync(version_path, version, 'utf8');
+    await fs.writeFile(version_path, version, 'utf8');
 }

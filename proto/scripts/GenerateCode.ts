@@ -1,15 +1,16 @@
-import path = require("path");
-import fs = require("fs");
+import { promises as fs } from "fs";
+import * as path from "path";
 import { execSync } from "child_process";
 
 import { paths } from "./Paths";
-import { walkDirSync } from "./WalkDirSync";
+import { walkDir } from "../tools/FileUtil";
 
 
-export function generate_ts_code() {
+export async function generateTsCode() {
+
     console.log(`生成 typescript 代码`);
 
-    const fbs_path_list = walkDirSync(paths.fbs, '.fbs');
+    const fbs_path_list = await walkDir(paths.fbs, '.fbs');
 
     for (const file_path of fbs_path_list) {
         const full_path = path.join(paths.fbs, file_path);
@@ -19,9 +20,10 @@ export function generate_ts_code() {
     }
 
     // replace Class function simple
-    walkDirSync(paths.ts, '.ts').forEach(file_path => {
+    const file_path_list = await walkDir(paths.ts, '.ts');
+    for (const file_path of file_path_list) {
         let origin_path = path.join(paths.ts, file_path);
-        let origin = fs.readFileSync(origin_path, 'utf8');
+        let origin = await fs.readFile(origin_path, 'utf8');
 
         const clazzes = [];
         const lines = origin.split('\n');
@@ -61,14 +63,15 @@ export function generate_ts_code() {
             origin = origin.replace(regCreate, 'create(');
         }
 
-        fs.writeFileSync(origin_path, origin);
-    });
+        await fs.writeFile(origin_path, origin);
+    }
 }
 
-export function generate_csharp_code() {
+export async function generateCsharpCode() {
+
     console.log(`生成 csharp 代码`);
 
-    const fbs_path_list = walkDirSync(paths.fbs, '.fbs');
+    const fbs_path_list = await walkDir(paths.fbs, '.fbs');
 
     for (const file_path of fbs_path_list) {
         if (file_path.startsWith('ServerOnly')) {
@@ -80,13 +83,14 @@ export function generate_csharp_code() {
         execSync(command);
     }
 
-    // replace Class function simple
-    walkDirSync(paths.csharp, '.cs').forEach(file_path => {
+    const csharp_path_list = await walkDir(paths.csharp, '.cs');
+    for (const file_path of csharp_path_list) {
+
         let origin_path = path.join(paths.csharp, file_path);
 
         console.log(`修改生成的CSharp代码: ${file_path}`);
 
-        let origin = fs.readFileSync(origin_path, 'utf8');
+        let origin = await fs.readFile(origin_path, 'utf8');
 
         const clazzes = [];
         const lines = origin.split('\n');
@@ -113,14 +117,14 @@ export function generate_csharp_code() {
             origin = origin.replace(regFinish, 'Finish(');
         }
 
-        fs.writeFileSync(origin_path, origin);
-    });
+        await fs.writeFile(origin_path, origin);
+    }
 }
 
-export function generate_rust_code() {
+export async function generateRustCode() {
     console.log(`生成 rust 代码`);
 
-    const fbs_path_list = walkDirSync(paths.fbs, '.fbs');
+    const fbs_path_list = await walkDir(paths.fbs, '.fbs');
 
     let mod_list: string[] = [];
     for (const file_path of fbs_path_list) {
@@ -129,7 +133,7 @@ export function generate_rust_code() {
         // console.log(command);
         execSync(command);
 
-        const mod_content = fs.readFileSync(path.resolve(paths.rust, "mod.rs"));
+        const mod_content = await fs.readFile(path.resolve(paths.rust, "mod.rs"));
 
         let content_begin = false;
         const lines = mod_content.toString().split('\n');
@@ -166,49 +170,14 @@ ${mod_list.join('\n')}
 
 } // proto`;
 
-    fs.writeFileSync(path.resolve(paths.rust, "mod.rs"), mod);
+    await fs.writeFile(path.resolve(paths.rust, "mod.rs"), mod);
 
-    // replace Class function simple
-    walkDirSync(paths.csharp, '.cs').forEach(file_path => {
-        let origin_path = path.join(paths.csharp, file_path);
-
-        console.log(`修改生成的CSharp代码: ${file_path}`);
-
-        let origin = fs.readFileSync(origin_path, 'utf8');
-
-        const clazzes = [];
-        const lines = origin.split('\n');
-        for (const line of lines) {
-            const mc = line.match(/public struct (\w+) : IFlatbufferObject/);
-            if (mc) {
-                clazzes.push(mc[1]);
-            }
-        }
-
-        console.log(`检测到 struct: ${clazzes}`);
-
-        for (const clazz of clazzes) {
-            const regAs = new RegExp(`GetRootAs${clazz}\\(`, 'g');
-            origin = origin.replace(regAs, 'GetRoot(');
-
-            const regEnd = new RegExp(`End${clazz}\\(`, 'g');
-            origin = origin.replace(regEnd, 'End(');
-
-            const regCreate = new RegExp(`Create${clazz}\\(`, 'g');
-            origin = origin.replace(regCreate, 'Create(');
-
-            const regFinish = new RegExp(`Finish${clazz}Buffer\\(`, 'g');
-            origin = origin.replace(regFinish, 'Finish(');
-        }
-
-        fs.writeFileSync(origin_path, origin);
-    });
 }
 
-export function generate_code(target_folder: string, language_sign: string, flag: string = '') {
+export async function generateCode(target_folder: string, language_sign: string, flag: string = '') {
     console.log(`生成 ${language_sign} 代码`);
 
-    const fbs_path_list = walkDirSync(paths.fbs, '.fbs');
+    const fbs_path_list = await walkDir(paths.fbs, '.fbs');
     for (const file_path of fbs_path_list) {
         const full_path = path.join(paths.fbs, file_path);
         const command = `${paths.flatc} --${language_sign} -o ${target_folder} ${full_path} ${flag}`;

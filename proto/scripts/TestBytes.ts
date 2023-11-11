@@ -1,20 +1,21 @@
 import { execSync } from "child_process";
-import fs = require("fs");
-import path = require("path");
 import { chdir } from "process";
+import { promises as fs } from "fs";
+import * as path from "path";
 
 import { paths } from "./Paths"
+import { IGenerateBytesResult } from "./GenerateBytes";
 
-export function test_bytes(bytes_path_list: [string, string, string][]): void {
+export async function testBytes(bytes_path_list: IGenerateBytesResult[]) {
 
     for (const item of bytes_path_list) {
 
-        const fbs_path = item[0];
-        const json_path = item[1];
-        const bytes_path = item[2];
+        const fbs_path = item.fbs_path;
+        const json_path = item.json_path;
+        const bytes_path = item.bytes_path;
 
         let test_path = path.join(paths.tests, json_path.slice(paths.json.length + 1));
-        fs.mkdirSync(path.dirname(test_path), { recursive: true });
+        await fs.mkdir(path.dirname(test_path), { recursive: true });
 
         console.log(`使用 ${path.basename(fbs_path)} 测试数据 ${bytes_path}`);
 
@@ -23,8 +24,8 @@ export function test_bytes(bytes_path_list: [string, string, string][]): void {
         chdir(path.dirname(test_path));
         execSync(command);
 
-        const origin_json_content = fs.readFileSync(json_path, 'utf8');
-        const test_json_content = fs.readFileSync(test_path, 'utf8');
+        const origin_json_content = await fs.readFile(json_path, 'utf8');
+        const test_json_content = await fs.readFile(test_path, 'utf8');
 
         const origin = JSON.parse(origin_json_content);
         const test = JSON.parse(test_json_content);
@@ -39,7 +40,7 @@ export function test_bytes(bytes_path_list: [string, string, string][]): void {
         }
         else {
             console.log(`测试成功 ${bytes_path}`);
-            fs.renameSync(bytes_path, bytes_path.substring(0, bytes_path.length - '.bin'.length) + '.bytes');
+            await fs.rename(bytes_path, bytes_path.substring(0, bytes_path.length - '.bin'.length) + '.bytes');
         }
     }
 }
