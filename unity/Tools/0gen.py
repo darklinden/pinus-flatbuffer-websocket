@@ -60,7 +60,7 @@ def gen_route(folder: str, ignore_files: list[str]):
                 content = content.replace("'", '"')
                 content = content.replace("{}", 'null')
                 content = re.sub(r'import .*', '', content)
-                content = re.sub(r'public (\w+): Cmd = Cmd.create',
+                content = re.sub(r'public (\w+) = Cmd.create',
                                  r'public Cmd \1 = new Cmd', content)
                 content = re.sub(r'proto.(\w+)',
                                  r'typeof(Proto.\1)', content)

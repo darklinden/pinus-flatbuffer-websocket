@@ -40,8 +40,6 @@ async function main() {
 
     const args = parse_args(process.argv);
 
-    console.log('args: ' + JSON.stringify(args));
-
     // parse args of extensions
     const cwd = process.cwd();
 
@@ -62,9 +60,11 @@ async function main() {
                 extension.push(e);
             }
         }
-
-        await relativeCopy(from, to, extension);
     }
+
+    console.log(`copy from ${from} to ${to} with extension ${extension}`);
+
+    await relativeCopy(from, to, extension);
 }
 
 main();
