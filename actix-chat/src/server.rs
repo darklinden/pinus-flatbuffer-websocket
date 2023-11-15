@@ -1,12 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
 use actix::prelude::*;
+use async_trait::async_trait;
 use rand::{self, rngs::ThreadRng, Rng};
 
 use crate::pinus::protocol::{
     Pkg, PkgBody, PACKAGE_TYPE_DATA, PACKAGE_TYPE_HANDSHAKE, PACKAGE_TYPE_HANDSHAKE_ACK,
     PACKAGE_TYPE_HEARTBEAT, PACKAGE_TYPE_KICK,
 };
+
+use crate::handlers::route_to;
 
 /// New chat session is created
 #[derive(Message)]
@@ -24,6 +27,8 @@ pub struct Disconnect {
 
 #[derive(Debug)]
 pub struct WsServer {
+    #[allow(dead_code)]
+    server_id: i32,
     // 存储所有的 session
     sessions: HashMap<usize, Recipient<Pkg>>,
     // 存储 channel 列表
@@ -31,9 +36,14 @@ pub struct WsServer {
     rng: ThreadRng,
 }
 
+static SERVER_ID_SEQ: i32 = 0;
+
 impl WsServer {
     pub fn new() -> WsServer {
+        let server_id = SERVER_ID_SEQ + 1;
+        println!("WsServer new {}", server_id);
         WsServer {
+            server_id: server_id,
             sessions: HashMap::new(),
             channels: HashMap::new(),
             rng: rand::thread_rng(),
@@ -43,6 +53,7 @@ impl WsServer {
 
 impl WsServer {
     /// Send message to all users in the channel
+    #[allow(dead_code)]
     fn send_message_by_channel(&self, channel_id: &str, pkg: &Pkg, skip_id: usize) {
         if let Some(chanel_list) = self.channels.get(channel_id) {
             for session_id in chanel_list {
@@ -58,6 +69,7 @@ impl WsServer {
 
 impl WsServer {
     /// Send message to user by id
+    #[allow(dead_code)]
     fn send_message_by_id(&self, session_id: usize, pkg: &Pkg) {
         if let Some(addr) = self.sessions.get(&session_id) {
             addr.do_send(pkg.to_owned());
@@ -162,7 +174,6 @@ impl Handler<Pkg> for WsServer {
                     "session recv data package route {}",
                     msg.route.to_owned().unwrap().name.unwrap()
                 );
-                // self.send_message_by_channel(&channel_id, &pkg, 0);
             }
             PkgBody::StrMsg(s) => {
                 println!("session recv data str {}", s);

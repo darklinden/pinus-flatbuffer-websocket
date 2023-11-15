@@ -3,12 +3,11 @@ use super::error::PinusErr;
 const PKG_HEAD_BYTES: usize = 4;
 const MSG_FLAG_BYTES: usize = 1;
 const MSG_ROUTE_CODE_BYTES: usize = 2;
-const MSG_ID_MAX_BYTES: usize = 5;
+
 const MSG_ROUTE_LEN_BYTES: usize = 1;
 const MSG_ROUTE_CODE_MAX: u16 = 0xffff;
 const MSG_COMPRESS_ROUTE_MASK: u8 = 0x1;
-const MSG_COMPRESS_GZIP_MASK: u8 = 0x1;
-const MSG_COMPRESS_GZIP_ENCODE_MASK: u8 = 1 << 4;
+
 const MSG_TYPE_MASK: u8 = 0x7;
 const MSG_TYPE_REQUEST: u8 = 0;
 const MSG_TYPE_NOTIFY: u8 = 1;

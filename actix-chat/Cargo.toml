@@ -1,5 +1,5 @@
 [package]
-name = "websocket-chat"
+name = "chat"
 version = "1.0.0"
 edition = "2021"
 
@@ -21,3 +21,6 @@ tokio = { version = "1.24.2", features = ["full"] }
 tokio-util = "0.7.4"
 tokio-stream = "0.1.8"
 dotenv = "0.15.0"
+
+route-marker = { path = "./route-marker" }
+async-trait = "0.1.74"

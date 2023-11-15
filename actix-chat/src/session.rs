@@ -123,7 +123,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
                     self.addr
                         .send(pkg)
                         .into_actor(self)
-                        .then(|res, _, ctx| {
+                        .then(|res, session, ctx| {
                             match res {
                                 Ok(_) => (),
                                 _ => ctx.stop(),

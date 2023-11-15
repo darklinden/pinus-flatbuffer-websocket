@@ -4,6 +4,7 @@ use actix::*;
 use actix_web::{middleware::Logger, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 
+mod handlers;
 mod pinus;
 mod server;
 mod session;
