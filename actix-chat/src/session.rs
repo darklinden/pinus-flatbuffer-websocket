@@ -1,10 +1,12 @@
+use actix::prelude::*;
+use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 
-use actix::prelude::*;
-use actix_web_actors::ws::{self, WebsocketContext};
-
 use crate::{
-    pinus::protocol::{decode_pkg, encode_pkg, Pkg},
+    pinus::{
+        handle_pkgs::handle_pkgs,
+        protocol::{decode_pkg, encode_pkg, Pkg, PACKAGE_TYPE_KICK},
+    },
     server,
 };
 
@@ -81,7 +83,10 @@ impl Actor for WsSession {
             .into_actor(self)
             .then(|res, act, ctx| {
                 match res {
-                    Ok(res) => act.id = res,
+                    Ok(res) => {
+                        log::debug!("ws session started: {}", res);
+                        act.id = res;
+                    }
                     // something is wrong with chat server
                     _ => ctx.stop(),
                 }
@@ -91,6 +96,8 @@ impl Actor for WsSession {
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
+        log::debug!("ws session stopping: {}", self.id);
+
         // notify chat server
         self.addr.do_send(server::Disconnect { id: self.id });
         Running::Stop
@@ -119,19 +126,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             ws::Message::Binary(bytes) => {
                 let pkgs = decode_pkg(&bytes).unwrap();
 
-                for pkg in pkgs {
-                    self.addr
-                        .send(pkg)
-                        .into_actor(self)
-                        .then(|res, session, ctx| {
-                            match res {
-                                Ok(_) => (),
-                                _ => ctx.stop(),
-                            }
-                            fut::ready(())
-                        })
-                        .wait(ctx);
-                }
+                let recipient = ctx.address().recipient();
+                let future = async move {
+                    let reader = handle_pkgs(pkgs).await;
+                    for pkg in reader {
+                        recipient.do_send(pkg);
+                    }
+                };
+
+                future.into_actor(self).spawn(ctx);
             }
             ws::Message::Close(reason) => {
                 ctx.close(reason);
@@ -150,11 +153,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
 impl Handler<Pkg> for WsSession {
     type Result = ();
 
-    fn handle(&mut self, pkg: Pkg, ctx: &mut WebsocketContext<Self>) {
+    fn handle(&mut self, pkg: Pkg, ctx: &mut Self::Context) {
         println!("session handle send package");
 
         // send message to peer
         let msg_bytes = encode_pkg(&pkg).unwrap();
         ctx.binary(msg_bytes);
+
+        if pkg.pkg_type == PACKAGE_TYPE_KICK {
+            ctx.stop();
+        }
     }
 }

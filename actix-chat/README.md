@@ -1,31 +1,19 @@
 # Websocket chat example
 
-This is extension of the [actix chat example](https://github.com/actix/examples/tree/HEAD/websockets/chat)
+## About The Project
 
-Added features:
+To make a small chat demo based on netease-pomelo protocol structure and actix Actor system.
 
-- Browser WebSocket client
-- Chat server runs in separate thread
-- TCP listener runs in separate thread
+## Built With
 
-## Server
+* [Actix] <https://github.com/actix/actix>
 
-Chat server listens for incoming tcp connections. Server can access several types of message:
+## Structure
 
-- `/list` - list all available rooms
-- `/join name` - join room, if room does not exist, create new one
-- `/name name` - set session name
-- `some message` - just string, send message to all peers in same room
-- client has to send heartbeat `Ping` messages, if server does not receive a heartbeat message for 10 seconds connection gets dropped
+* `route-marker` - route marker
+  for rust does not support get function module and name in attribute macro, so I use this to mark the route and get the function name by another generater.
 
-To start server use command: `cargo run --bin websocket-tcp-server`
+* `route-genertor` - route generater
+  generate the route function list and write to `src/handlers/mod.rs`
 
-## Client
-
-Client connects to server. Reads input from stdin and sends to server.
-
-To run client use command: `cargo run --bin websocket-tcp-client`
-
-## WebSocket Browser Client
-
-Open url: <http://localhost:8080>
+* `src/main.rs` - main file

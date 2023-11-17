@@ -5,6 +5,8 @@ pub enum ConfigKeys {
     JWT_EXPIRATION_TIME,
     HTTP_SERVER_CLUSTER,
     HTTP_SERVER_PORT,
+    HTTP_SERVER_LOG_LEVEL,
+    HTTP_SERVER_LOG_BACKTRACE,
 }
 
 impl ConfigKeys {
@@ -15,6 +17,8 @@ impl ConfigKeys {
             ConfigKeys::JWT_EXPIRATION_TIME => "JWT_EXPIRATION_TIME",
             ConfigKeys::HTTP_SERVER_CLUSTER => "HTTP_SERVER_CLUSTER",
             ConfigKeys::HTTP_SERVER_PORT => "HTTP_SERVER_PORT",
+            ConfigKeys::HTTP_SERVER_LOG_LEVEL => "HTTP_SERVER_LOG_LEVEL",
+            ConfigKeys::HTTP_SERVER_LOG_BACKTRACE => "HTTP_SERVER_LOG_BACKTRACE",
         }
     }
 }
@@ -39,6 +43,14 @@ pub fn get_config_str(key: ConfigKeys) -> String {
             ConfigKeys::HTTP_SERVER_PORT => {
                 // default 3000
                 3010.to_string()
+            }
+            ConfigKeys::HTTP_SERVER_LOG_LEVEL => {
+                // default log level
+                "info".to_string()
+            }
+            ConfigKeys::HTTP_SERVER_LOG_BACKTRACE => {
+                // default log backtrace
+                1.to_string()
             }
         },
     }

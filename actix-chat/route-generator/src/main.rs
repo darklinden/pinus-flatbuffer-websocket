@@ -80,15 +80,52 @@ fn main() {
 
     mod_content += "        _ => panic!(\"invalid route: {}\", route),\n    }\n}\n\n";
 
-    mod_content += "#[allow(dead_code)]\npub const ROUTES: &[&str] = &[\n";
+    // #[allow(dead_code)]
+    // pub const HANDSHAKE_RET: &str = r#"{
+    // "code":200,
+    // "sys":{
+    // "heartbeat":5000,
+    // "dict":{
+    // "connector.entry":0,
+    // "connector.exit":1,
+    // "connector.test":2,
+    // "connector.test1":3,
+    // "connector.ask":4,
+    // "connector.question":5,
+    // "logic.entry":6,
+    // "logic.exit":7,
+    // "logic.test":8,
+    // "logic.test1":9,
+    // "logic.ask":10,
+    // "logic.question":11
+    // }
+    // }
+    // }"#;
+
+    mod_content += r###"#[allow(dead_code)]
+pub const HANDSHAKE_RET: &str = r#"{
+"code":200,
+"sys":{
+"heartbeat":5000,
+"dict":{
+"###;
+
+    let mut index = 1;
     for module in keys.to_owned() {
         let routes = module_routes.get(module).unwrap();
         for route in routes {
-            mod_content += &format!("    \"{}.{}\",\n", module, route,);
+            mod_content += &format!("\"{}.{}\":{},\n", module, route, index);
+            index += 1;
         }
     }
 
-    mod_content += "];\n";
+    if index > 1 {
+        mod_content.remove(mod_content.len() - 2);
+    }
+
+    mod_content += r###"}
+}
+}"#;"###;
 
     fs::write("../src/handlers/mod.rs", mod_content).unwrap();
 }

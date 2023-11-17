@@ -21,17 +21,23 @@ pub async fn route_to(route: String, arg: Vec<u8>) -> Vec<u8> {
 }
 
 #[allow(dead_code)]
-pub const ROUTES: &[&str] = &[
-    "entry.ask",
-    "entry.entry",
-    "entry.exit",
-    "entry.question",
-    "entry.test",
-    "entry.test1",
-    "logic.ask",
-    "logic.entry",
-    "logic.exit",
-    "logic.question",
-    "logic.test",
-    "logic.test1",
-];
+pub const HANDSHAKE_RET: &str = r#"{
+"code":200,
+"sys":{
+"heartbeat":5000,
+"dict":{
+"entry.ask":1,
+"entry.entry":2,
+"entry.exit":3,
+"entry.question":4,
+"entry.test":5,
+"entry.test1":6,
+"logic.ask":7,
+"logic.entry":8,
+"logic.exit":9,
+"logic.question":10,
+"logic.test":11,
+"logic.test1":12
+}
+}
+}"#;

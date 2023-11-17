@@ -1,15 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use actix::prelude::*;
-use async_trait::async_trait;
 use rand::{self, rngs::ThreadRng, Rng};
 
-use crate::pinus::protocol::{
-    Pkg, PkgBody, PACKAGE_TYPE_DATA, PACKAGE_TYPE_HANDSHAKE, PACKAGE_TYPE_HANDSHAKE_ACK,
-    PACKAGE_TYPE_HEARTBEAT, PACKAGE_TYPE_KICK,
-};
-
-use crate::handlers::route_to;
+use crate::pinus::protocol::Pkg;
 
 /// New chat session is created
 #[derive(Message)]
@@ -41,7 +35,7 @@ static SERVER_ID_SEQ: i32 = 0;
 impl WsServer {
     pub fn new() -> WsServer {
         let server_id = SERVER_ID_SEQ + 1;
-        println!("WsServer new {}", server_id);
+        log::info!("WsServer new {}", server_id);
         WsServer {
             server_id: server_id,
             sessions: HashMap::new(),
@@ -91,8 +85,6 @@ impl Handler<Connect> for WsServer {
     type Result = usize;
 
     fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
-        println!("Someone joined");
-
         // register session with random id
         let mut session_id: usize = self.rng.gen::<usize>();
         while self.sessions.contains_key(&session_id) {
@@ -109,7 +101,7 @@ impl Handler<Connect> for WsServer {
             .or_default()
             .insert(session_id);
 
-        log::info!("current sessions: {:?}", self.sessions.len());
+        log::info!("current session count: {}", self.sessions.len());
 
         // send id back
         session_id
@@ -121,8 +113,6 @@ impl Handler<Disconnect> for WsServer {
     type Result = ();
 
     fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
-        println!("Someone disconnected");
-
         // let mut channels_leave_msg: Vec<String> = Vec::new();
 
         // remove address
@@ -133,51 +123,12 @@ impl Handler<Disconnect> for WsServer {
                     // channels_leave_msg.push(name.to_owned());
                 }
             }
+
+            log::info!("current session count: {}", self.sessions.len());
         }
         // send message to other users
         // for c in channels_leave_msg {
         //     self.send_message(&c, "Someone disconnected", 0);
         // }
-    }
-}
-
-/// Handler for Package message from session.
-impl Handler<Pkg> for WsServer {
-    type Result = ();
-
-    fn handle(&mut self, pkg: Pkg, ctx: &mut Context<Self>) {
-        println!("session recv package {}", pkg.pkg_type);
-        match pkg.pkg_type {
-            PACKAGE_TYPE_HANDSHAKE => {
-                println!("session recv data package PACKAGE_TYPE_HANDSHAKE");
-            }
-            PACKAGE_TYPE_HANDSHAKE_ACK => {
-                println!("session recv data package PACKAGE_TYPE_HANDSHAKE_ACK");
-            }
-            PACKAGE_TYPE_HEARTBEAT => {
-                println!("session recv data package PACKAGE_TYPE_HEARTBEAT");
-            }
-            PACKAGE_TYPE_DATA => {
-                println!("session recv data package PACKAGE_TYPE_DATA");
-            }
-            PACKAGE_TYPE_KICK => {
-                println!("session recv data package PACKAGE_TYPE_KICK");
-            }
-            _ => {
-                println!("session recv unknown package type {}", pkg.pkg_type);
-            }
-        }
-
-        match pkg.content.unwrap() {
-            PkgBody::Msg(msg) => {
-                println!(
-                    "session recv data package route {}",
-                    msg.route.to_owned().unwrap().name.unwrap()
-                );
-            }
-            PkgBody::StrMsg(s) => {
-                println!("session recv data str {}", s);
-            }
-        }
     }
 }
