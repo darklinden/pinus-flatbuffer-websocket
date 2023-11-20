@@ -279,9 +279,11 @@ var Message = /** @class */ (function () {
                 i++;
             } while (m >= 128);
         }
+        console.log('decode', type, compressRoute, compressGzip, id);
         // parse route
         if (msgHasRoute(type)) {
             if (compressRoute) {
+                console.log('decode bytes offset', bytes, offset);
                 route = (bytes[offset++]) << 8 | bytes[offset++];
             }
             else {
@@ -506,6 +508,7 @@ var Pinus = /** @class */ (function () {
             this._heartbeatInterval = 0;
             this._heartbeatTimeout = 0;
         }
+        this.DEBUG_LOG && console.log(timestr(), 'heartbeat', this._heartbeatInterval, this._heartbeatTimeout);
         if (d && d.sys) {
             var dict = d.sys.dict;
             // Init compress dict
@@ -555,6 +558,7 @@ var Pinus = /** @class */ (function () {
         }
     };
     Pinus.prototype.onData = function (data) {
+        this.DEBUG_LOG && log_bytes('recv', data);
         var msg = this.decode(data);
         if (!msg) {
             console.error('pinus onData decode failed');
@@ -611,6 +615,7 @@ var Pinus = /** @class */ (function () {
             return null;
         // decode
         var msg = Message.decode(data);
+        this.DEBUG_LOG && console.log(timestr(), 'decode1', msg);
         if (msg.id > 0) {
             var r = this._requestRouteMap[msg.id];
             delete this._requestRouteMap[msg.id];
@@ -618,20 +623,27 @@ var Pinus = /** @class */ (function () {
                 msg.route = r;
             }
             else {
+                this.DEBUG_LOG && console.log(timestr(), 'decode2', msg);
+
                 return null;
             }
         }
         var route = null;
         // Decompose route from dict
+        this.DEBUG_LOG && console.log(timestr(), 'decode3', msg);
         if (msg.compressRoute) {
             route = this._routeMapBack[msg.route] || null;
-            if (!route)
+            if (!route) {
+
                 return null;
+            }
             msg.route = route;
         }
         else {
             route = msg.route;
         }
+        this.DEBUG_LOG && console.log(timestr(), 'decode4', msg);
+
         return msg;
     };
     Pinus.prototype.encode = function (reqId, route, msg) {

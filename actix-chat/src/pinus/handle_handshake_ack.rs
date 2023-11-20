@@ -1,32 +1,11 @@
-use crate::pinus::protocol::{PkgBody, PACKAGE_TYPE_HANDSHAKE};
+use super::pkg::{Pkg, PkgBody, PkgType};
 
-use super::protocol::Pkg;
+pub async fn handle_handshake_ack(_pkg: Pkg) -> Pkg {
+    log::debug!("handle {}", PkgType::HandshakeAck);
 
-pub async fn handle_handshake_ack(pkg: Pkg) -> Pkg {
-    log::debug!("session recv data package PACKAGE_TYPE_HANDSHAKE_ACK");
-    match pkg.content.unwrap() {
-        PkgBody::Msg(msg) => handle_msg(msg).await,
-        PkgBody::StrMsg(s) => handle_str_msg(s).await,
-    }
-}
-
-async fn handle_msg(msg: super::protocol::Msg) -> Pkg {
-    log::debug!(
-        "session recv data package route {}",
-        msg.route.to_owned().unwrap().name.unwrap()
-    );
-
+    // handshake ack no content
     Pkg {
-        pkg_type: PACKAGE_TYPE_HANDSHAKE,
-        content: Some(PkgBody::StrMsg("hello".to_string())),
-    }
-}
-
-async fn handle_str_msg(msg: String) -> Pkg {
-    log::debug!("session recv data package route {}", msg);
-
-    Pkg {
-        pkg_type: PACKAGE_TYPE_HANDSHAKE,
-        content: Some(PkgBody::StrMsg("hello".to_string())),
+        pkg_type: PkgType::Heartbeat,
+        content: PkgBody::None,
     }
 }

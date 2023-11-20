@@ -6,7 +6,7 @@ use utils::file_util;
 
 fn main() {
     // find all files in ../../src/handlers and generate routes
-    let handlers_path_str = "../src/handlers";
+    let handlers_path_str = "../src/pinus/handlers";
     let extensions = vec!["rs"];
     let relative_path_str = "";
     let files = file_util::walk_dir(handlers_path_str, &extensions, relative_path_str).unwrap();
@@ -58,6 +58,9 @@ fn main() {
 
     // generate mod.rs
     let mut mod_content = String::new();
+    mod_content += "use super::super::pinus::msg::Msg;\n";
+    mod_content += "use anyhow::Result;\n\n";
+
     let mut keys = module_routes.keys().collect::<Vec<_>>();
     keys.sort();
     for module in keys.to_owned() {
@@ -66,66 +69,46 @@ fn main() {
 
     mod_content += "\n";
 
-    mod_content += "#[allow(dead_code)]\npub async fn route_to(route: String, arg: Vec<u8>) -> Vec<u8> {\n    match route.as_str() {\n";
+    mod_content += "#[allow(dead_code)]\n";
+    mod_content += "pub const ROUTE_LIST: &'static [&'static str] = &[\n    \"no-route\",\n";
+    for module in keys.to_owned() {
+        let routes = module_routes.get(module).unwrap();
+        for route in routes {
+            mod_content += &format!("    \"{}.{}\",\n", module, route);
+        }
+    }
+    mod_content += "];\n\n";
+
+    mod_content += "#[allow(dead_code)]\n";
+    mod_content += "pub async fn handle_data_msg(msg: Msg) -> Option<Msg> {\n";
+    mod_content += "    let route_str = msg.route.to_owned().name.unwrap();\n";
+    mod_content += "    let route = route_str.as_str();\n";
+    mod_content += "    let result = match route {\n";
 
     for module in keys.to_owned() {
         let routes = module_routes.get(module).unwrap();
         for route in routes {
             mod_content += &format!(
-                "        \"{}.{}\" => {}::{}(arg).await,\n",
+                "        \"{}.{}\" => {}::{}(msg).await,\n",
                 module, route, module, route
             );
         }
     }
 
-    mod_content += "        _ => panic!(\"invalid route: {}\", route),\n    }\n}\n\n";
+    mod_content += "        _ => Result::Err(anyhow::anyhow!(\"route not found\")),\n    };\n\n";
 
-    // #[allow(dead_code)]
-    // pub const HANDSHAKE_RET: &str = r#"{
-    // "code":200,
-    // "sys":{
-    // "heartbeat":5000,
-    // "dict":{
-    // "connector.entry":0,
-    // "connector.exit":1,
-    // "connector.test":2,
-    // "connector.test1":3,
-    // "connector.ask":4,
-    // "connector.question":5,
-    // "logic.entry":6,
-    // "logic.exit":7,
-    // "logic.test":8,
-    // "logic.test1":9,
-    // "logic.ask":10,
-    // "logic.question":11
-    // }
-    // }
-    // }"#;
+    mod_content += r###"    if result.is_err() {
+        log::error!("handle_data_msg error: {:?}", result.err());
+        return None;
+    }
 
-    mod_content += r###"#[allow(dead_code)]
-pub const HANDSHAKE_RET: &str = r#"{
-"code":200,
-"sys":{
-"heartbeat":5000,
-"dict":{
+    let result = result.unwrap();
+    return result;
+}
 "###;
 
-    let mut index = 1;
-    for module in keys.to_owned() {
-        let routes = module_routes.get(module).unwrap();
-        for route in routes {
-            mod_content += &format!("\"{}.{}\":{},\n", module, route, index);
-            index += 1;
-        }
+    let result = fs::write("../src/pinus/handlers/mod.rs", mod_content);
+    if result.is_err() {
+        println!("write mod.rs error: {:?}", result.err());
     }
-
-    if index > 1 {
-        mod_content.remove(mod_content.len() - 2);
-    }
-
-    mod_content += r###"}
-}
-}"#;"###;
-
-    fs::write("../src/handlers/mod.rs", mod_content).unwrap();
 }

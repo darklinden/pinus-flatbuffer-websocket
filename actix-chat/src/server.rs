@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 
-use crate::pinus::protocol::Pkg;
+use crate::pinus::pkg::Pkg;
 
 /// New chat session is created
 #[derive(Message)]

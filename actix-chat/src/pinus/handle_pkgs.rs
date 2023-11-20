@@ -3,10 +3,7 @@ use super::{
     handle_handshake::handle_handshake,
     handle_handshake_ack::handle_handshake_ack,
     handle_heartbeat::handle_heartbeat,
-    protocol::{
-        Pkg, PkgBody, PACKAGE_TYPE_DATA, PACKAGE_TYPE_HANDSHAKE, PACKAGE_TYPE_HANDSHAKE_ACK,
-        PACKAGE_TYPE_HEARTBEAT, PACKAGE_TYPE_KICK,
-    },
+    pkg::{Pkg, PkgBody, PkgType},
 };
 
 pub async fn handle_pkgs(pkgs: Vec<Pkg>) -> Vec<Pkg> {
@@ -19,15 +16,15 @@ pub async fn handle_pkgs(pkgs: Vec<Pkg>) -> Vec<Pkg> {
 
 pub async fn handle_pkg(pkg: Pkg) -> Pkg {
     match pkg.pkg_type {
-        PACKAGE_TYPE_HANDSHAKE => handle_handshake(pkg).await,
-        PACKAGE_TYPE_HANDSHAKE_ACK => handle_handshake_ack(pkg).await,
-        PACKAGE_TYPE_HEARTBEAT => handle_heartbeat(pkg).await,
-        PACKAGE_TYPE_DATA => handle_data(pkg).await,
+        PkgType::Handshake => handle_handshake(pkg).await,
+        PkgType::HandshakeAck => handle_handshake_ack(pkg).await,
+        PkgType::Heartbeat => handle_heartbeat(pkg).await,
+        PkgType::Data => handle_data(pkg).await,
         _ => {
             log::error!("session recv unknown package type {}", pkg.pkg_type);
             Pkg {
-                pkg_type: PACKAGE_TYPE_KICK,
-                content: Some(PkgBody::StrMsg("unknown package type".to_string())),
+                pkg_type: PkgType::Kick,
+                content: PkgBody::StrMsg("unknown package type".to_string()),
             }
         }
     }

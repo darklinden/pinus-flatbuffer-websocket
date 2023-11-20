@@ -14,7 +14,7 @@ import { ResponseUserEnter } from './proto/response-user-enter.js'
 const ErrorCount = new Counter("errors");
 
 const DEBUG_LOG = true;
-const LIVE_TIME = 10;
+const LIVE_TIME = 60;
 const HTTP_TIME_OUT = 10 * 1000;
 
 // export const options = {
@@ -86,11 +86,12 @@ export default function () {
                     case PinusEvents.EVENT_HANDSHAKEOVER:
                         {
                             handshake_success = true;
+                            pinus.client.isConnected = true;
 
                             if (pinus.heartbeatEnable()) {
                                 DEBUG_LOG && console.log('start timer for heartbeat');
                                 socket.setInterval(() => {
-                                    DEBUG_LOG && console.log('heartbeat check');
+                                    // DEBUG_LOG && console.log('heartbeat check');
                                     pinus.heartbeatCheck(0.1);
                                 }, 100);
                             }
@@ -100,11 +101,11 @@ export default function () {
                             DEBUG_LOG && console.log('send login request');
 
                             const builder = new flatbuffers.Builder(64);
-                            const tokenOffset = builder.createString(login_data.token);
+                            const tokenOffset = builder.createString("hello");
                             const login_request = RequestUserEnter.create(builder, tokenOffset);
                             builder.finish(login_request);
 
-                            pinus.request('connector.entryHandler.enter', builder.asUint8Array(), (data) => {
+                            pinus.request('entry.entry', builder.asUint8Array(), (data) => {
                                 login_success = true;
 
                                 const response = ResponseUserEnter.getRoot(new flatbuffers.ByteBuffer(data));
@@ -123,7 +124,7 @@ export default function () {
                         break;
                     case PinusEvents.EVENT_MESSAGE:
                         {
-                            // console.log('message', data);
+                            console.log('message', data);
                         }
                         break;
                     default:

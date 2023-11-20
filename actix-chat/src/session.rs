@@ -1,20 +1,11 @@
 use actix::prelude::*;
 use actix_web_actors::ws;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use crate::{
-    pinus::{
-        handle_pkgs::handle_pkgs,
-        protocol::{decode_pkg, encode_pkg, Pkg, PACKAGE_TYPE_KICK},
-    },
-    server,
-};
-
-/// How often heartbeat pings are sent
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-
-/// How long before lack of client response causes a timeout
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+use crate::pinus::constants::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
+use crate::pinus::handle_pkgs::handle_pkgs;
+use crate::pinus::pkg::{Pkg, PkgType};
+use crate::server;
 
 #[derive(Debug)]
 pub struct WsSession {
@@ -55,8 +46,6 @@ impl WsSession {
                 // don't try to send a ping
                 return;
             }
-
-            ctx.ping(b"");
         });
     }
 }
@@ -116,15 +105,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             Ok(msg) => msg,
         };
 
-        log::debug!("WEBSOCKET MESSAGE: {msg:?}");
         match msg {
-            ws::Message::Ping(msg) => {
-                ctx.pong(&msg);
-            }
+            ws::Message::Ping(_) => {}
             ws::Message::Pong(_) => (),
             ws::Message::Text(_) => (),
             ws::Message::Binary(bytes) => {
-                let pkgs = decode_pkg(&bytes).unwrap();
+                let pkgs = Pkg::decode(&bytes).unwrap();
 
                 let recipient = ctx.address().recipient();
                 let future = async move {
@@ -156,12 +142,41 @@ impl Handler<Pkg> for WsSession {
     fn handle(&mut self, pkg: Pkg, ctx: &mut Self::Context) {
         println!("session handle send package");
 
-        // send message to peer
-        let msg_bytes = encode_pkg(&pkg).unwrap();
-        ctx.binary(msg_bytes);
+        match pkg.pkg_type {
+            PkgType::Heartbeat => {
+                // refresh time
+                self.heartbeat = Instant::now();
 
-        if pkg.pkg_type == PACKAGE_TYPE_KICK {
-            ctx.stop();
+                // send message
+                let msg_bytes = pkg.encode();
+                if msg_bytes.is_err() {
+                    log::error!("session handle encode pkg fail {}", pkg.pkg_type);
+                    return;
+                }
+                ctx.binary(msg_bytes.unwrap());
+            }
+            PkgType::Handshake | PkgType::Data => {
+                // send message only
+                let msg_bytes = pkg.encode();
+                if msg_bytes.is_err() {
+                    log::error!("session handle encode pkg fail {}", pkg.pkg_type);
+                    return;
+                }
+                ctx.binary(msg_bytes.unwrap());
+            }
+            PkgType::Kick => {
+                // send message and close
+                let msg_bytes = pkg.encode();
+                if msg_bytes.is_err() {
+                    log::error!("session handle encode pkg fail {}", pkg.pkg_type);
+                    return;
+                }
+                ctx.binary(msg_bytes.unwrap());
+                ctx.stop();
+            }
+            _ => {
+                log::error!("session handle unknown package type {}", pkg.pkg_type);
+            }
         }
     }
 }
