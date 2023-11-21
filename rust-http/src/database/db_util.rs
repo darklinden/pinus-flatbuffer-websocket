@@ -10,5 +10,5 @@ pub async fn redis_conn(redis: web::Data<redis::Client>) -> redis::aio::Connecti
 }
 
 pub trait FromEnt<T>: Sized {
-    fn from_ent(v: &T) -> Option<Self>;
+    fn from_ent(v: &T) -> Self;
 }

@@ -10,11 +10,15 @@ pub const ROUTE_LIST: &'static [&'static str] = &[
 ];
 
 #[allow(dead_code)]
-pub async fn handle_data_msg(msg: Msg) -> Option<Msg> {
+pub async fn handle_data_msg(
+    rd: &mut redis::aio::ConnectionManager,
+    pg: &sea_orm::DatabaseConnection,
+    msg: Msg,
+) -> Option<Msg> {
     let route_str = msg.route.to_owned().name.unwrap();
     let route = route_str.as_str();
     let result = match route {
-        "entry.entry" => entry::entry(msg).await,
+        "entry.entry" => entry::entry(rd, pg, msg).await, // RequestUserEnter ResponseUserEnter 
         _ => Result::Err(anyhow::anyhow!("route not found")),
     };
 

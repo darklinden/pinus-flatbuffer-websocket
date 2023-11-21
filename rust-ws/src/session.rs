@@ -24,6 +24,9 @@ pub struct WsSession {
 
     /// Chat server
     pub addr: Addr<server::WsServer>,
+
+    pub redis_conn: actix_web::web::Data<redis::Client>,
+    pub pg_conn: actix_web::web::Data<sea_orm::DatabaseConnection>,
 }
 
 impl WsSession {
@@ -113,8 +116,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
                 let pkgs = Pkg::decode(&bytes).unwrap();
 
                 let recipient = ctx.address().recipient();
+                let redis_conn = self.redis_conn.clone();
+                let pg_conn = self.pg_conn.clone();
+
                 let future = async move {
-                    let reader = handle_pkgs(pkgs).await;
+                    let rd = redis_conn.get_tokio_connection_manager().await;
+                    if rd.is_err() {
+                        log::error!("session handle get redis connection fail");
+                        return;
+                    }
+                    let mut redis_client = rd.unwrap();
+                    let pg = &pg_conn.into_inner();
+                    let reader = handle_pkgs(&mut redis_client, pg, pkgs).await;
                     for pkg in reader {
                         recipient.do_send(pkg);
                     }

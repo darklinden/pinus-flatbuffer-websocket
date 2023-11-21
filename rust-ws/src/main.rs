@@ -1,24 +1,29 @@
+use sea_orm::Database;
 use std::time::Instant;
 
 use actix::*;
 use actix_web::{middleware::Logger, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 
+mod database;
+mod features;
 mod pinus;
 mod server;
 mod session;
 mod utils;
-use utils::config::get_config;
 
-use crate::utils::config::ConfigKeys;
+use utils::config::{get_config, get_config_str, ConfigKeys};
 
 /// Entry point for our websocket route
 async fn route(
     req: HttpRequest,
     stream: web::Payload,
     srv: web::Data<Addr<server::WsServer>>,
+    redis_conn: web::Data<redis::Client>,
+    pg_conn: web::Data<sea_orm::DatabaseConnection>,
 ) -> Result<HttpResponse, Error> {
     log::debug!("web route request: {:?}", req);
+
     ws::start(
         session::WsSession {
             id: 0,
@@ -26,6 +31,8 @@ async fn route(
             room: "main".to_owned(),
             name: None,
             addr: srv.get_ref().clone(),
+            redis_conn: redis_conn.clone(),
+            pg_conn: pg_conn.clone(),
         },
         &req,
         stream,
@@ -43,17 +50,16 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or(log_level));
     std::env::set_var("RUST_BACKTRACE", log_backtrace);
 
-    // // config for database
-    // let db_url = get_config::<String>(ConfigKeys::DATABASE_URL).unwrap();
-    // let postgres_connect = Database::connect(&db_url).await.unwrap();
+    // config for database
+    let db_url = get_config_str(ConfigKeys::DATABASE_URL);
+    let postgres_connect = Database::connect(&db_url).await.unwrap();
 
-    // // config for redis
-    // let redis_url = get_config::<String>(ConfigKeys::REDIS_URL).unwrap();
-    // let redis = redis::Client::open(redis_url).unwrap();
+    // config for redis
+    let redis_url = get_config_str(ConfigKeys::REDIS_URL);
+    let redis = redis::Client::open(redis_url).unwrap();
 
-    // // test redis connection
-    // #[warn(unused_must_use)]
-    // let _ = redis.get_connection().unwrap();
+    // test redis connection
+    let _ = redis.get_connection().unwrap();
 
     // config for server
     let server_port = get_config::<u16>(ConfigKeys::HTTP_SERVER_PORT).unwrap();
@@ -71,6 +77,8 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(server.clone()))
+            .app_data(web::Data::new(postgres_connect.clone()))
+            .app_data(web::Data::new(redis.clone()))
             .route("/", web::get().to(route))
             .wrap(Logger::default())
     })

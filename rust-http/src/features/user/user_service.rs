@@ -34,7 +34,7 @@ pub async fn register(
     .await
     .unwrap();
 
-    let user_dto = UserDto::from_ent(&user).unwrap();
+    let user_dto = UserDto::from_ent(&user);
 
     let _ = save_cache(rd, &user_dto).await;
 
@@ -114,7 +114,7 @@ pub async fn account_get_user(
     if ent.is_ok() {
         let model = ent.unwrap();
         if model.is_some() {
-            let dto = UserDto::from_ent(&model.unwrap()).unwrap();
+            let dto = UserDto::from_ent(&model.unwrap());
             let _ = save_cache(rd, &dto).await;
             return Ok(dto);
         }

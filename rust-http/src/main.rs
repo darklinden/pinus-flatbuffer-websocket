@@ -24,7 +24,6 @@ async fn main() -> std::io::Result<()> {
     let redis = redis::Client::open(redis_url).unwrap();
 
     // test redis connection
-    #[warn(unused_must_use)]
     let _ = redis.get_connection().unwrap();
 
     // config for http server

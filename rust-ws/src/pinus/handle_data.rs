@@ -1,14 +1,18 @@
 use super::handlers::{handle_data_msg, ROUTE_LIST};
 use super::pkg::{Pkg, PkgBody, PkgType};
 
-pub async fn handle_data(pkg: Pkg) -> Pkg {
+pub async fn handle_data(
+    rd: &mut redis::aio::ConnectionManager,
+    pg: &sea_orm::DatabaseConnection,
+    pkg: Pkg,
+) -> Pkg {
     log::debug!("handle {}", PkgType::Data);
     match pkg.content {
         PkgBody::None => Pkg {
             pkg_type: PkgType::Kick,
             content: PkgBody::StrMsg("handle data fail".to_string()),
         },
-        PkgBody::Msg(msg) => handle_msg(msg).await,
+        PkgBody::Msg(msg) => handle_msg(rd, pg, msg).await,
         PkgBody::StrMsg(s) => handle_str_msg(s).await,
     }
 }
@@ -34,7 +38,11 @@ pub fn route2code(route: &str) -> Option<u16> {
     None
 }
 
-async fn handle_msg(msg: super::msg::Msg) -> Pkg {
+async fn handle_msg(
+    rd: &mut redis::aio::ConnectionManager,
+    pg: &sea_orm::DatabaseConnection,
+    msg: super::msg::Msg,
+) -> Pkg {
     log::debug!("handle msg {:?}", msg);
 
     let mut msg = msg;
@@ -47,13 +55,17 @@ async fn handle_msg(msg: super::msg::Msg) -> Pkg {
         }
     }
 
-    let msg = handle_data_msg(msg).await;
+    let msg = handle_data_msg(rd, pg, msg).await;
 
     log::debug!("handle msg result {:?}", msg);
 
     Pkg {
         pkg_type: PkgType::Data,
-        content: PkgBody::Msg(msg.unwrap()),
+        content: if msg.is_none() {
+            PkgBody::None
+        } else {
+            PkgBody::Msg(msg.unwrap())
+        },
     }
 }
 

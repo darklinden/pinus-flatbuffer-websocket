@@ -16,12 +16,6 @@ pub struct UserDto {
 impl FromRedisValue for UserDto {
     fn from_redis_value(v: &redis::Value) -> redis::RedisResult<Self> {
         match v {
-            redis::Value::Nil => Ok(Self {
-                id: None,
-                account: None,
-                password: None,
-                token_iat_limit: 0,
-            }),
             redis::Value::Data(data) => {
                 let result: Self = serde_json::from_slice(data).unwrap();
                 Ok(result)
@@ -32,23 +26,23 @@ impl FromRedisValue for UserDto {
 }
 
 impl FromEnt<user::Model> for UserDto {
-    fn from_ent(v: &user::Model) -> Option<Self> {
-        Some(Self {
+    fn from_ent(v: &user::Model) -> Self {
+        Self {
             id: Some(v.id),
             account: v.account.clone(),
             password: v.password.clone(),
             token_iat_limit: v.token_iat_limit,
-        })
+        }
     }
 }
 
 impl FromEnt<user::ActiveModel> for UserDto {
-    fn from_ent(v: &user::ActiveModel) -> Option<Self> {
-        Some(Self {
+    fn from_ent(v: &user::ActiveModel) -> Self {
+        Self {
             id: Some(v.id.clone().unwrap()),
             account: v.account.clone().unwrap(),
             password: v.password.clone().unwrap(),
             token_iat_limit: v.token_iat_limit.clone().unwrap(),
-        })
+        }
     }
 }

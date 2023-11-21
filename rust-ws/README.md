@@ -17,3 +17,13 @@ To make a small chat demo based on netease-pomelo protocol structure and actix A
   generate the route function list and write to `src/handlers/mod.rs`
 
 * `src/main.rs` - main file
+
+## database
+
+* Generating Entity Files
+
+> If databse table is already created, you can generate entity files with sea-orm-cli.
+
+```shell
+sea-orm-cli generate entity --lib -o entities/src
+```

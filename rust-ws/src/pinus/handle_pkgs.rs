@@ -6,20 +6,28 @@ use super::{
     pkg::{Pkg, PkgBody, PkgType},
 };
 
-pub async fn handle_pkgs(pkgs: Vec<Pkg>) -> Vec<Pkg> {
+pub async fn handle_pkgs(
+    rd: &mut redis::aio::ConnectionManager,
+    pg: &sea_orm::DatabaseConnection,
+    pkgs: Vec<Pkg>,
+) -> Vec<Pkg> {
     let mut result = Vec::new();
     for pkg in pkgs {
-        result.push(handle_pkg(pkg).await);
+        result.push(handle_pkg(rd, pg, pkg).await);
     }
     result
 }
 
-pub async fn handle_pkg(pkg: Pkg) -> Pkg {
+pub async fn handle_pkg(
+    rd: &mut redis::aio::ConnectionManager,
+    pg: &sea_orm::DatabaseConnection,
+    pkg: Pkg,
+) -> Pkg {
     match pkg.pkg_type {
         PkgType::Handshake => handle_handshake(pkg).await,
         PkgType::HandshakeAck => handle_handshake_ack(pkg).await,
         PkgType::Heartbeat => handle_heartbeat(pkg).await,
-        PkgType::Data => handle_data(pkg).await,
+        PkgType::Data => handle_data(rd, pg, pkg).await,
         _ => {
             log::error!("session recv unknown package type {}", pkg.pkg_type);
             Pkg {

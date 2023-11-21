@@ -1,4 +1,7 @@
-use crate::pinus::msg::{Msg, MsgType};
+use crate::{
+    pinus::msg::{Msg, MsgType},
+    utils::jwt,
+};
 use anyhow::Result;
 use protocols::proto::{
     RequestUserEnter, ResponseUserEnter, ResponseUserEnterArgs, UserInfo, UserInfoArgs,
@@ -8,8 +11,14 @@ use route_marker::mark_route;
 // import the flatbuffers runtime library
 extern crate flatbuffers;
 
-#[mark_route]
-pub async fn entry(_msg: Msg) -> Result<Option<Msg>> {
+use crate::features::user_info::user_info_service::get_user_info_by_id;
+
+#[mark_route(RequestUserEnter, ResponseUserEnter)]
+pub async fn entry(
+    rd: &mut redis::aio::ConnectionManager,
+    pg: &sea_orm::DatabaseConnection,
+    _msg: Msg,
+) -> Result<Option<Msg>> {
     // in_msg : RequestUserEnter
     // out_msg : ResponseUserEnter
 
@@ -20,19 +29,27 @@ pub async fn entry(_msg: Msg) -> Result<Option<Msg>> {
     let buf = _msg.body.unwrap();
     let in_msg = flatbuffers::root::<RequestUserEnter>(&buf).unwrap();
 
-    log::debug!("session handle entry {:?}", in_msg.token());
+    let token = in_msg.token().unwrap();
+    log::debug!("session handle entry {:?}", token);
+
+    let auth = jwt::verify(&token.to_string());
+    let uid = auth.uid;
+
+    let user_info = get_user_info_by_id(rd, pg, uid).await?;
+
+    log::debug!("user_info {:?}", &user_info);
 
     // do sth
 
     let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 
-    let name = builder.create_string("hello");
+    let name = builder.create_string(user_info.name.as_str());
 
     let user_info_offset = UserInfo::create(
         &mut builder,
         &UserInfoArgs {
             name: Some(name),
-            level: 1,
+            level: user_info.level,
         },
     );
 
