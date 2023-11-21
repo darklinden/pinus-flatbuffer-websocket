@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+. "$(dirname "$0")/_/husky.sh"
+
+BASEDIR=$(dirname "$0")
+CURRENT_DIR="$(realpath "${BASEDIR}")"
+PROJECT_DIR="$(realpath "${CURRENT_DIR}/..")"
+
+cd "${PROJECT_DIR}" || exit 1
+
+ALL_SQLS=$(find . -name "*.sql")
+
+for sql in ${ALL_SQLS}; do
+    echo "Formatting ${sql}"
+    pg_format "${sql}" >"${sql}.tmp"
+    mv "${sql}.tmp" "${sql}"
+done
+
+echo "Done"

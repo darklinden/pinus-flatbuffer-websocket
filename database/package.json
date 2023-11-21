@@ -1,0 +1,26 @@
+{
+  "name": "db-manager",
+  "license": "UNLICENSED",
+  "version": "1.0.0",
+  "description": "",
+  "main": "",
+  "scripts": {
+    "test-upgrade": "yarn ts-node ./scripts/index.ts test-upgrade",
+    "upgrade": "yarn ts-node ./scripts/index.ts upgrade",
+    "test-force-recreate": "yarn ts-node ./scripts/index.ts test-force-recreate",
+    "force-recreate": "yarn ts-node ./scripts/index.ts force-recreate",
+    "comment-out-prepare": "husky install"
+  },
+  "author": "",
+  "devDependencies": {
+    "@types/node": "^18.15.11",
+    "@types/pg": "^8.10.5",
+    "dotenv": "^16.3.1",
+    "husky": "^8.0.3",
+    "ioredis": "^5.3.2",
+    "pg": "^8.11.3",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {}
+}
