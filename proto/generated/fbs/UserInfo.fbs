@@ -1,6 +1,6 @@
 namespace Proto;
 
 table UserInfo {
-    name:string; // 名字 
-    level:int32; // 等级 
+    name: string; // 名字 
+    level: int32; // 等级 
 }

@@ -1,391 +1,182 @@
-import path = require("path");
-import fs = require("fs");
+import * as path from "path";
+import { promises as fs } from "fs";
 
-import { BaseDataTypes } from "./BaseDataTypes";
+import { BaseDataType } from "./BaseDataTypes";
 import { CsvUtil } from "./CsvUtil";
-import { IPathStruct, paths } from "./Paths"
+import { paths } from "./Paths"
+import { CsvAll, CsvFileType, FieldType, IComplexField, IComplexType, ICsvObject, IFbsEnum } from "./Initialize";
 
-enum FieldType {
-    Base = 0, // 基础类型
-    Enum, // 枚举
-    StructOrTable, // 结构体或表
+export function parseEnum(enumInfo: IFbsEnum, enumValue: string): string {
+
+    if (enumInfo.name_list.includes(enumValue)) {
+        return enumValue;
+    }
+    else if (!isNaN(+enumValue)) {
+        let value = +enumValue;
+        for (const key in enumInfo.value_map) {
+            if (enumInfo.value_map[key].value == value) {
+                return key;
+            }
+        }
+    }
+
+    throw new Error('未知枚举值: ' + JSON.stringify(enumInfo.value_map) + ' - [' + enumValue + ']');
 }
 
-class JsonFieldStruct {
-    name: string;
-    typeStr: string;
-    isArr: boolean;
-    fieldType: FieldType;
+export function parseEnumToValue(enumInfo: IFbsEnum, enumValue: string): any {
 
-    // 枚举对照
-    enumKV: { [key: string]: number };
-    enumVK: { [key: number]: string };
-
-    // 当字段为复杂字段时，struct / table 字段列表
-    subStructs: JsonFieldStruct[];
-
-    public clone(): JsonFieldStruct {
-        const field: JsonFieldStruct = this;
-        const f = new JsonFieldStruct();
-        f.name = field.name;
-        f.typeStr = field.typeStr;
-        f.isArr = field.isArr;
-        f.fieldType = field.fieldType;
-        f.enumKV = field.enumKV ? JSON.parse(JSON.stringify(field.enumKV)) : null;
-        f.enumVK = field.enumVK ? JSON.parse(JSON.stringify(field.enumVK)) : null;
-        if (field.subStructs) {
-            f.subStructs = [];
-            for (const sub of field.subStructs) {
-                f.subStructs.push(sub.clone());
-            }
-        }
-        return f;
+    if (enumInfo.name_list.includes(enumValue)) {
+        return enumInfo.value_map[enumValue].value;
     }
-}
-
-async function parseSubStruct(
-    name: string,
-    includes: { [key: string]: JsonFieldStruct },
-    obj: {
-        enums: { [key: string]: IPathStruct },
-        structs: { [key: string]: IPathStruct },
-        tables: { [key: string]: IPathStruct }
-    }
-): Promise<JsonFieldStruct> {
-    let struct = new JsonFieldStruct();
-
-    if (obj.enums.hasOwnProperty(name)) {
-
-        struct.typeStr = name;
-        struct.fieldType = FieldType.Enum;
-        struct.enumKV = {};
-        struct.enumVK = {};
-
-        let rows = await CsvUtil.loadDataSync(obj.enums[name].csv);
-        for (const row of rows) {
-            if (row[0].startsWith('#')) {
-                // 跳过表头和注释
-                continue;
-            }
-            struct.enumKV[row[0]] = parseInt(row[1]);
-            struct.enumVK[parseInt(row[1])] = row[0];
-        }
-
-        return struct;
-    }
-    else if (obj.structs.hasOwnProperty(name)) {
-        struct.typeStr = name;
-        struct.fieldType = FieldType.StructOrTable;
-        struct.subStructs = await csv2Struct(obj.structs[name].csv, includes, obj);
-        return struct;
-    }
-    else if (obj.tables.hasOwnProperty(name)) {
-        struct.typeStr = name;
-        struct.fieldType = FieldType.StructOrTable;
-        struct.subStructs = await csv2TableStruct(obj.tables[name].csv, includes, obj);
-        return struct;
-    }
-    else
-        throw new Error('未知类型: ' + name);
-
-}
-
-async function csv2Struct(
-    csv_path: string,
-    includes: { [key: string]: JsonFieldStruct },
-    obj: {
-        enums: { [key: string]: IPathStruct },
-        structs: { [key: string]: IPathStruct },
-        tables: { [key: string]: IPathStruct }
-    }
-): Promise<JsonFieldStruct[]> {
-
-    console.log('csv2Struct: ' + csv_path);
-
-    let rows = await CsvUtil.loadDataSync(csv_path);
-
-    let rowStructs: JsonFieldStruct[] = [];
-
-    // 字段名, 字段类型, 注释 
-    for (let row of rows) {
-        if (row[0].startsWith('#')) {
-            // 跳过表头和注释
-            continue;
-        }
-
-        let comment = row[2] || '';
-        const variable_name = row[0]
-        const data_type = row[1]
-
-        let var_type = data_type.trim();
-
-        // 如果是数组类型，取内部类型
-        let isArr = false;
-        if (var_type.startsWith('[') && var_type.endsWith(']')) {
-            var_type = var_type.slice(1, -1);
-            isArr = true;
-        }
-
-        let fieldStruct: JsonFieldStruct = null;
-        if (BaseDataTypes.indexOf(var_type) == -1) {
-            // 复杂类型
-            if (includes[var_type]) {
-                fieldStruct = includes[var_type].clone();
-            }
-            else {
-                let includeStruct = await parseSubStruct(var_type, includes, obj);
-                includes[var_type] = includeStruct;
-                fieldStruct = includeStruct.clone();
-            }
-
-            fieldStruct.name = variable_name;
-            fieldStruct.typeStr = var_type;
-            fieldStruct.isArr = isArr;
-        }
-        else {
-            // 基础类型
-            fieldStruct = new JsonFieldStruct();
-            fieldStruct.name = variable_name;
-            fieldStruct.typeStr = var_type;
-            fieldStruct.isArr = isArr;
-            fieldStruct.fieldType = FieldType.Base;
-        }
-
-        rowStructs.push(fieldStruct);
-    }
-
-    // console.log('csv_to_struct: ' + csv_path + ' end', rowStructs);
-
-    return rowStructs;
-}
-
-
-async function csv2TableStruct(
-    csv_path: string,
-    includes: { [key: string]: JsonFieldStruct },
-    obj: {
-        enums: { [key: string]: IPathStruct },
-        structs: { [key: string]: IPathStruct },
-        tables: { [key: string]: IPathStruct }
-    }
-): Promise<JsonFieldStruct[]> {
-
-    // console.log('csv_to_table_struct: ' + csv_path);
-
-    let rows = await CsvUtil.loadDataSync(csv_path);
-    let header: string[] = null;
-    let data: string[][] = [];
-    for (const row of rows) {
-        if (row[0].startsWith('#')) {
-            // 跳过表头和注释
-            continue;
-        }
-
-        if (row.length <= 0 || (row[0] === '')) {
-            // 跳过空行
-            continue;
-        }
-
-        if (!header) {
-            header = row;
-        }
-        else {
-            // console.log('data', row);
-            data.push(row);
-        }
-    }
-
-    let rowStructs: JsonFieldStruct[] = [];
-
-    // 字段名, 字段类型, 注释
-    for (let item of header) {
-        if (item.trim() == '')
-            continue
-
-        if (item.startsWith('#')) {
-            // 跳过表头和注释
-            continue;
-        }
-
-        try {
-            const tmp = item.split('|')
-            const comment = tmp[0]
-            const data = tmp[1]
-            const variable = data.split(':')
-            const variable_name = variable[0]
-            const data_type = variable[1]
-
-            let var_type = data_type.trim();
-
-            // 如果是数组类型，取内部类型
-            let isArr = false;
-            if (var_type.startsWith('[') && var_type.endsWith(']')) {
-                var_type = var_type.slice(1, -1);
-                isArr = true;
-            }
-
-            let fieldStruct: JsonFieldStruct = null;
-            if (BaseDataTypes.indexOf(var_type) == -1) {
-                // 复杂类型
-                if (includes[var_type]) {
-                    fieldStruct = includes[var_type].clone();
-                }
-                else {
-                    let includeStruct = await parseSubStruct(var_type, includes, obj);
-                    includes[var_type] = includeStruct;
-                    fieldStruct = includeStruct.clone();
-                }
-
-                fieldStruct.name = variable_name;
-                fieldStruct.typeStr = var_type;
-                fieldStruct.isArr = isArr;
-            }
-            else {
-                // 基础类型
-                fieldStruct = new JsonFieldStruct();
-                fieldStruct.name = variable_name;
-                fieldStruct.typeStr = var_type;
-                fieldStruct.isArr = isArr;
-                fieldStruct.fieldType = FieldType.Base;
-            }
-
-            rowStructs.push(fieldStruct);
-
-        } catch (error) {
-            console.log('csv_to_table_struct: ' + csv_path + ' error: ' + item);
-            throw error;
-        }
-    }
-
-    return rowStructs;
-}
-
-export function parseJsonFieldBaseType(typeStr: string, str: string): any {
-    if (typeStr == 'int32' || typeStr == 'int64' || typeStr == 'byte') {
-        return parseInt(str);
-    }
-    else if (typeStr == 'string') {
-        return str;
-    }
-    else if (typeStr == 'bool') {
-        return str == 'true';
+    else if (!enumValue || !enumValue.length) {
+        return 0;
     }
     else {
-        throw new Error('未知类型: ' + typeStr);
+        throw new Error('未知枚举值: ' + JSON.stringify(enumInfo.value_map) + ' - [' + enumValue + ']');
     }
 }
 
-export function parseJsonFieldEnumType(struct: JsonFieldStruct, str: string): any {
-    if (struct.enumKV.hasOwnProperty(str)) {
-        return str;
-    }
-    else if (struct.enumVK.hasOwnProperty(parseInt(str))) {
-        return struct.enumVK[parseInt(str)];
-    }
-    else if (!str || !str.length) {
-        return struct.enumVK[0];
-    }
-    else {
-        throw new Error('未知枚举值: ' + struct.typeStr + ' - ' + JSON.stringify(struct.enumKV) + ' - [' + str + ']');
-    }
-}
+export function parseStruct(complexInfo: IComplexType, value: string, csv_all: CsvAll): any {
 
-export function parseJsonFieldStructType(struct: JsonFieldStruct, str: string): any {
-
-    if (!str || !str.length) return null;
+    value = value ? value.trim() : '';
+    if (!value.length) return null;
 
     let obj: any = {};
-    let items = str.split('#');
+    let items = value.split('#');
 
-    if (items.length < struct.subStructs.length) {
-        throw new Error('字段数量不匹配: ' + struct.typeStr + ' - [' + str + ']');
+    if (items.length != complexInfo.field_list.length) {
+        throw new Error('字段数量不匹配: ' + JSON.stringify(complexInfo) + ' - ' + value);
     }
 
-    for (let i = 0; i < struct.subStructs.length; i++) {
+    for (let i = 0; i < complexInfo.field_list.length; i++) {
         let item = items[i];
-        const { struct_name, type_value } = parseJsonField(struct.subStructs[i], item);
-        if (type_value != null)
-            obj[struct_name] = type_value;
+        const field = complexInfo.field_list[i];
+        const result = parseField(field, item, csv_all);
+        if (result)
+            obj[result.key] = result.typed_value;
     }
     return obj;
 }
 
-// key value
-export function parseJsonField(struct: JsonFieldStruct, str: string): { struct_name: string, type_value: any } {
-    let value: any = null;
+export function parseBaseType(typeStr: BaseDataType, valueStr: string, csv_all: CsvAll): number | bigint | string | boolean {
+    let v = valueStr && valueStr.length ? valueStr.trim() : '';
 
-    if (struct.fieldType == FieldType.Base) {
-        if (struct.isArr) {
-            if (str == null || str.trim() == '') {
-                return { struct_name: struct.name, type_value: [] }
+    switch (typeStr) {
+        case 'int64':
+        case 'int32':
+        case 'byte':
+            {
+                if (isNaN(+v)) {
+                    // try parse enum
+                    if (v.includes('::')) {
+                        let arr = v.split('::');
+                        if (arr.length == 2) {
+                            let enumName = arr[0];
+                            let enumValue = arr[1];
+
+                            let enum_other = csv_all.get(CsvFileType.Enum, enumName);
+                            if (enum_other) {
+                                let enumInfo = enum_other.info as IFbsEnum;
+
+                                parseEnumToValue(enumInfo, enumValue);
+                            }
+
+                            return +enumValue;
+                        }
+                    }
+                    return 0;
+                }
+
+                // isNum
+                if (typeStr == 'int64') {
+                    let bv = BigInt(v);
+                    if (bv > BigInt(Number.MAX_SAFE_INTEGER) || bv < BigInt(Number.MIN_SAFE_INTEGER)) {
+                        return bv;
+                    }
+                    return +v;
+                }
+                return +v;
             }
-            let arr = str.split(';');
-            value = [];
-            for (const item of arr) {
-                value.push(parseJsonFieldBaseType(struct.typeStr, item));
-            }
-        }
-        else {
-            if (str == null || str.trim() == '') {
-                switch (struct.typeStr) {
-                    case 'bool':
-                        return { struct_name: struct.name, type_value: false };
-                    case 'string':
-                        return { struct_name: struct.name, type_value: '' };
-                    case 'int32':
-                    case 'int64':
-                    case 'byte':
-                        return { struct_name: struct.name, type_value: 0 };
-                    default:
-                        return { struct_name: struct.name, type_value: null };
+        case 'string':
+            return v;
+        case 'bool':
+            return v.toLowerCase() == 'true' || (!isNaN(+v) && +v != 0);
+        default:
+            throw new Error('未知类型: ' + typeStr);
+    }
+}
+
+// key value
+export function parseField(field: IComplexField, value: string, csv_all: CsvAll): { key: string, typed_value: any } {
+
+    value = value ? value.trim() : '';
+
+    let result: { key: string, typed_value: any } = null;
+    switch (field.value_type) {
+        case FieldType.Base:
+            {
+                if (field.is_array) {
+                    result = { key: field.field_name, typed_value: [] };
+                    if (value != '') {
+                        let arr = value.split(';');
+                        for (const v of arr) {
+                            result.typed_value.push(parseBaseType(field.value_type_name as BaseDataType, v, csv_all));
+                        }
+                    }
+                }
+                else {
+                    result = { key: field.field_name, typed_value: parseBaseType(field.value_type_name as BaseDataType, value, csv_all) };
                 }
             }
-            value = parseJsonFieldBaseType(struct.typeStr, str);
-        }
-        return { struct_name: struct.name, type_value: value };
-    }
-    else if (struct.fieldType == FieldType.Enum) {
-        if (struct.isArr) {
-            if (str == null || str.trim() == '') {
-                return { struct_name: struct.name, type_value: [] };
-            }
-            let arr = str.split(';');
-            value = [];
-            for (const item of arr) {
-                if (item == null || item.trim() == '') {
-                    continue;
+            break;
+        case FieldType.Enum:
+            {
+                const enumO = csv_all.get(CsvFileType.Enum, field.value_type_name);
+                const enumInfo = enumO.info as IFbsEnum;
+                if (field.is_array) {
+                    result = { key: field.field_name, typed_value: [] };
+                    if (value != '') {
+                        let arr = value.split(';');
+                        for (const v of arr) {
+                            result.typed_value.push(parseEnum(enumInfo, v));
+                        }
+                    }
                 }
-                value.push(parseJsonFieldEnumType(struct, item));
+                else {
+                    result = { key: field.field_name, typed_value: parseEnum(enumInfo, value) };
+                }
             }
-        }
-        else {
-            if (str == null || str.trim() == '') {
-                return { struct_name: struct.name, type_value: struct.enumVK[0] };
+            break;
+        case FieldType.StructOrTable:
+            {
+                const complexO = csv_all.get(CsvFileType.Struct, field.value_type_name);
+                const complexInfo = complexO.info as IComplexType;
+                if (field.is_array) {
+                    let typed_value = [];
+                    let arr = value.split(';');
+                    for (const v of arr) {
+                        var o = parseStruct(complexInfo, v, csv_all)
+                        o && typed_value.push(o);
+                    }
+                    if (typed_value.length > 0) {
+                        result = { key: field.field_name, typed_value: typed_value };
+                    }
+                }
+                else {
+                    let typed_value = parseStruct(complexInfo, value, csv_all);
+                    if (typed_value) {
+                        result = { key: field.field_name, typed_value: typed_value };
+                    }
+                }
             }
-            value = parseJsonFieldEnumType(struct, str);
-        }
-        return { struct_name: struct.name, type_value: value };
+            break;
+        case FieldType.Comment:
+            break;
+        default:
+            throw new Error('未知类型: ' + field.value_type);
     }
-    else if (struct.fieldType == FieldType.StructOrTable) {
-        if (str == null || str.trim() == '') {
-            return { struct_name: struct.name, type_value: null };
-        }
-        if (struct.isArr) {
-            let arr = str.split(';');
-            value = [];
-            for (const item of arr) {
-                var o = parseJsonFieldStructType(struct, item)
-                o && value.push(o);
-            }
-        }
-        else {
-            value = parseJsonFieldStructType(struct, str);
-        }
-        return { struct_name: struct.name, type_value: value };
-    }
-    else {
-        throw new Error('未知类型: ' + struct.typeStr);
-    }
+
+    return result;
 }
 
 async function getCsvRowData(csv_path: string): Promise<string[][]> {
@@ -414,106 +205,103 @@ async function getCsvRowData(csv_path: string): Promise<string[][]> {
     return data;
 }
 
-function structMatchRow(struct: JsonFieldStruct[], dataRows: string[][]): any {
+async function csvToJson(o: ICsvObject, dataRows: string[][], csv_all: CsvAll) {
     let result: {
         rows: any[]
     } = {
         rows: []
     };
 
+    let info = o.info as IComplexType;
+
     for (const row of dataRows) {
         let obj: any = {};
-        for (let i = 0; i < struct.length; i++) {
-            const field = struct[i];
+        // console.assert(row.length >= info.field_list.length, `字段数量不匹配: ${JSON.stringify(o)} ${JSON.stringify(row)}`);
+        for (let i = 0; i < info.field_list.length; i++) {
+            const field = info.field_list[i];
             const value = row[i];
-            // console.log('正在解析行数据', field.name, value);
-            const { struct_name, type_value } = parseJsonField(field, value);
-            if (type_value != null)
-                obj[struct_name] = type_value;
+            const result = parseField(field, value, csv_all);
+            if (result)
+                obj[result.key] = result.typed_value;
         }
         result.rows.push(obj);
     }
     return result;
 }
 
-export async function generateJson(obj: {
-    enums: { [key: string]: IPathStruct }
-    structs: { [key: string]: IPathStruct }
-    tables: { [key: string]: IPathStruct }
-}): Promise<{ fbs_path: string, json_path: string }[]> {
+export async function generateJson(csv_all: CsvAll): Promise<void> {
 
-    let includes: { [key: string]: JsonFieldStruct } = {};
+    for (const table in csv_all.tables) {
+        const t = csv_all.tables[table];
+        const split_tables: { [table_name: string]: string[] } = {};
 
-    const fbs_to_json: { fbs_path: string, json_path: string }[] = [];
+        for (let csv_relative_path of t.csv_relative_paths) {
+            let table_base_name = path.basename(csv_relative_path, 'Table.csv');
+            let data_relative_path = path.join(path.dirname(csv_relative_path), table_base_name);
 
-    const split_tables: Map<string, string[]> = new Map();
+            let csv_full_path = path.join(paths.csv, csv_relative_path);
+            let json_full_path = path.join(paths.json, data_relative_path + '.json');
+            console.log('正在导出表格数据到 JSON ', csv_relative_path, data_relative_path);
 
-    for (const table in obj.tables) {
-
-        const p = obj.tables[table];
-        const csv_path = p.csv;
-        const fbs_path = p.fbs;
-
-        let table_base_name = path.basename(csv_path, 'Table.csv');
-        let json_path = path.join(path.dirname(csv_path), table_base_name + '.json');
-        json_path = path.join(paths.json, json_path.slice(paths.csv.length + 1));
-        console.log('正在导出表格数据到 JSON ', csv_path, fbs_path, json_path);
-
-        if (table_base_name.indexOf('@') > 0) {
-            // 拆表待合并
-            if (split_tables.has(fbs_path) == false) {
-                split_tables.set(fbs_path, []);
-            }
-            split_tables.get(fbs_path).push(json_path);
-        }
-        else {
-            // 普通表
-            fbs_to_json.push({ fbs_path, json_path });
-        }
-
-        const struct = await csv2TableStruct(csv_path, includes, obj);
-        const dataRows = await getCsvRowData(csv_path);
-
-        const tableData = structMatchRow(struct, dataRows);
-
-        let json = JSON.stringify(tableData, null, 4);
-        fs.mkdirSync(path.dirname(json_path), { recursive: true });
-        fs.writeFileSync(json_path, json, 'utf8');
-    }
-
-    // 合并拆表
-    if (split_tables.size > 0) {
-        for (const [fbs_path, json_paths] of split_tables) {
-            const tableData: { rows: any[] } = { rows: [] };
-
-            // 按 @ 后面的数字排序
-            json_paths.sort((a, b) => {
-                let na = path.basename(a, '.json');
-                let nb = path.basename(b, '.json');
-                na = na.slice(na.indexOf('@') + 1);
-                nb = nb.slice(nb.indexOf('@') + 1);
-                return parseInt(na) - parseInt(nb);
-            });
-
-            for (const path of json_paths) {
-                console.log('正在合并拆表数据 JSON ', path);
-                const data = JSON.parse(fs.readFileSync(path, 'utf8'));
-                for (const row of data.rows) {
-                    tableData.rows.push(row);
+            if (!t.data_relative_paths) t.data_relative_paths = [];
+            if (table_base_name.indexOf('@') > 0) {
+                // 拆表待合并
+                console.log('拆表待合并', csv_relative_path);
+                let name_path_split = data_relative_path.split('@');
+                let table_name = name_path_split[0];
+                if (!split_tables[table_name]) split_tables[table_name] = [];
+                if (split_tables[table_name].includes(json_full_path) == false) {
+                    split_tables[table_name].push(json_full_path);
                 }
+                data_relative_path = path.join(path.dirname(csv_relative_path), table_name);;
             }
+
+            if (t.data_relative_paths.includes(data_relative_path) == false) {
+                t.data_relative_paths.push(data_relative_path);
+            }
+
+            const dataRows = await getCsvRowData(csv_full_path);
+            const tableData = await csvToJson(t, dataRows, csv_all);
+
             let json = JSON.stringify(tableData, null, 4);
+            await fs.mkdir(path.dirname(json_full_path), { recursive: true });
+            await fs.writeFile(json_full_path, json, 'utf8');
+        }
 
-            let fbs_base_name = path.basename(fbs_path, '.fbs');
-            let json_path = path.join(path.dirname(fbs_path), fbs_base_name + '.json');
-            json_path = path.join(paths.json, json_path.slice(paths.fbs.length + 1));
+        // 合并拆表
+        if (Object.keys(split_tables).length > 0) {
 
-            fs.mkdirSync(path.dirname(json_path), { recursive: true });
-            fs.writeFileSync(json_path, json, 'utf8');
-            fbs_to_json.push({ fbs_path, json_path });
+            for (const table_name in split_tables) {
+                const tableData: { rows: any[] } = { rows: [] };
+                const json_list = split_tables[table_name];
+                json_list.sort((a, b) => {
+                    let na = path.basename(a, '.json');
+                    let nb = path.basename(b, '.json');
+                    let na_split = na.split('@');
+                    let nb_split = nb.split('@');
+                    if (na_split.length != 2 || nb_split.length != 2) {
+                        throw new Error('拆表文件名错误: ' + a + ', ' + b);
+                    }
+                    return parseInt(na_split[1]) - parseInt(nb_split[1]);
+                });
+
+                console.log('正在合并拆表数据 JSON ', table_name);
+
+                for (const p of json_list) {
+                    console.log('正在合并拆表数据 JSON ', p);
+                    const data = JSON.parse(await fs.readFile(p, 'utf8'));
+                    for (const row of data.rows) {
+                        tableData.rows.push(row);
+                    }
+                }
+
+                let json = JSON.stringify(tableData, null, 4);
+                let json_path = path.join(path.dirname(json_list[0]), table_name + '.json');
+                console.log('正在导出合并拆表数据 JSON ', json_path);
+                await fs.mkdir(path.dirname(json_path), { recursive: true });
+                await fs.writeFile(json_path, json, 'utf8');
+            }
         }
     }
-
-    return fbs_to_json;
 }
 

@@ -1,42 +1,36 @@
+import * as path from "path";
+import { promises as fs } from "fs";
 import { execSync } from "child_process";
 import { chdir } from "process";
-import { promises as fs } from "fs";
-import * as path from "path";
 
 import { paths } from "./Paths"
+import { CsvAll } from "./Initialize";
 
-export interface IGenerateBytesResult {
-    fbs_path: string;
-    json_path: string;
-    bytes_path: string;
-}
-
-export async function generateBytes(fbs_to_json: { fbs_path: string, json_path: string }[]): Promise<IGenerateBytesResult[]> {
+export async function generateBytes(csv_all: CsvAll): Promise<void> {
 
     console.log('正在生成二进制文件');
 
-    const bytes_path_list: IGenerateBytesResult[] = [];
+    for (const key in csv_all.tables) {
 
-    for (const item of fbs_to_json) {
+        const table = csv_all.tables[key];
 
-        const fbs_path = item.fbs_path;
-        const json_path = item.json_path;
+        const class_relative_path = table.class_relative_path;
+        const fbs_path = path.join(paths.fbs, class_relative_path + '.fbs');
 
-        let bytes_path = path.join(path.dirname(json_path), path.basename(json_path, '.json') + '.bin');
-        bytes_path = path.join(paths.bytes, bytes_path.slice(paths.json.length + 1));
+        const data_relative_paths = table.data_relative_paths;
 
-        await fs.mkdir(path.dirname(bytes_path), { recursive: true });
+        for (const data_relative_path of data_relative_paths) {
+            const json_path = path.join(paths.json, data_relative_path + '.json');
 
-        console.log(`使用 ${path.basename(fbs_path)} 导出 ${path.basename(json_path)} 数据 ${bytes_path}`);
+            let bytes_path = path.join(paths.bytes, data_relative_path + '.bin');
+            await fs.mkdir(path.dirname(bytes_path), { recursive: true });
 
-        const command = `${paths.flatc} --binary ${fbs_path} ${json_path}`;
-        console.log(command);
-        chdir(path.dirname(bytes_path));
-        execSync(command);
+            console.log(`使用 ${path.basename(fbs_path)} 导出 ${path.basename(json_path)} 数据 ${bytes_path}`);
 
-        bytes_path_list.push({ fbs_path, json_path, bytes_path });
-        // fs.renameSync(path.basename(bytes_path, '.bytes') + '.bin', bytes_path);
+            const command = `${paths.flatc} --binary ${fbs_path} ${json_path}`;
+            console.log(command);
+            chdir(path.dirname(bytes_path));
+            execSync(command);
+        }
     }
-
-    return bytes_path_list;
 }

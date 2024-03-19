@@ -1,18 +1,21 @@
 import { promises as fs } from 'fs';
+import * as path from 'path';
 import * as crypto from 'crypto';
-import { IGenerateBytesResult } from './GenerateBytes';
+import { CsvAll } from './Initialize';
+import { paths } from './Paths';
 
-
-export async function generateVersion(bytes_path_list: IGenerateBytesResult[], version_path: string) {
+export async function generateVersion(csv_all: CsvAll, version_path: string) {
 
     const md5 = crypto.createHash('md5')
 
     const bytes = [];
 
-    for (const item of bytes_path_list) {
-        let bytes_path = item.bytes_path;
-        bytes_path = bytes_path.replace(/\.bin/g, '.bytes');
-        bytes.push(bytes_path);
+    for (const key in csv_all.tables) {
+        const table = csv_all.tables[key];
+        for (const data_relative_path of table.data_relative_paths) {
+            let bytes_path = path.join(paths.bytes, data_relative_path + '.bytes');
+            bytes.push(bytes_path);
+        }
     }
 
     bytes.sort();

@@ -1,7 +1,7 @@
 namespace Proto;
 
 table Vec3 {
-    x:int32; // x坐标 1000 = 1 
-    y:int32; // y坐标 1000 = 1 
-    z:int32; // z坐标 1000 = 1 
+    x: int32; // x坐标 1000 = 1 
+    y: int32; // y坐标 1000 = 1 
+    z: int32; // z坐标 1000 = 1 
 }

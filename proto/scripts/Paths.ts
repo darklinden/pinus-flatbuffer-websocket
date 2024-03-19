@@ -12,8 +12,3 @@ export class Paths {
 }
 
 export const paths = new Paths();
-
-export interface IPathStruct {
-    csv: string;
-    fbs: string;
-}

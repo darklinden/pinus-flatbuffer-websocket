@@ -1,11 +1,12 @@
 include "../Vec3.fbs";
+
 namespace Proto;
 
 table MapXDataRow {
-    id:int32;
-    name:string;
-    camp1:[Vec3];
-    camp2:[Vec3];
+    id: int32; // ID 
+    name: string; // 地图名称 
+    camp1: [Vec3]; // 阵营1站位 
+    camp2: [Vec3]; // 阵营2站位 
 }
 table MapXData {
     rows:[MapXDataRow];

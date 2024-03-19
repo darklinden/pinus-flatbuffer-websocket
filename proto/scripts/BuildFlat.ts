@@ -1,5 +1,5 @@
-import fs = require('fs');
-import path = require('path');
+import * as path from 'path';
+import { promises as fs } from 'fs';
 
 import { generateBytes } from "./GenerateBytes";
 import { generateCsharpCode, generateRustCode, generateTsCode } from "./GenerateCode";
@@ -13,12 +13,14 @@ import { walkDir } from '../tools/FileUtil';
 
 export async function buildFlat() {
 
-    await Initialize();
+    console.log('========================================');
+    const csv_all = await Initialize();
+    console.log('========================================\n');
 
     console.log('========================================');
     console.log('生成 fbs 文件');
     console.log('----------------------------------------');
-    const obj = await generateFbs();
+    await generateFbs(csv_all);
     console.log('========================================\n');
 
     console.log('========================================');
@@ -28,7 +30,8 @@ export async function buildFlat() {
     for (const file_path of other_fbs) {
         const full_path = path.join(paths.other_fbs, file_path);
         const target_path = path.join(paths.fbs, file_path);
-        fs.copyFileSync(full_path, target_path);
+        console.log('复制', file_path);
+        await fs.copyFile(full_path, target_path);
     }
     console.log('========================================\n');
 
@@ -43,25 +46,25 @@ export async function buildFlat() {
     console.log('========================================');
     console.log('生成json');
     console.log('----------------------------------------');
-    const fbs_to_json = await generateJson(obj);
+    await generateJson(csv_all);
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('生成二进制数据');
     console.log('----------------------------------------');
-    const bytes_path_list = await generateBytes(fbs_to_json);
+    await generateBytes(csv_all);
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('校验二进制数据');
     console.log('----------------------------------------');
-    await testBytes(bytes_path_list);
+    await testBytes(csv_all);
     console.log('========================================\n');
 
     console.log('========================================');
     console.log('生成配置文件版本');
     console.log('----------------------------------------');
-    await generateVersion(bytes_path_list, path.join(paths.bytes, 'version.bytes'));
+    await generateVersion(csv_all, path.join(paths.bytes, 'version.bytes'));
     console.log('========================================\n');
 
     console.log('');

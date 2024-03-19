@@ -4,43 +4,51 @@ import { promises as fs } from "fs";
 import * as path from "path";
 
 import { paths } from "./Paths"
-import { IGenerateBytesResult } from "./GenerateBytes";
+import { CsvAll } from "./Initialize";
 
-export async function testBytes(bytes_path_list: IGenerateBytesResult[]) {
+export async function testBytes(csv_all: CsvAll) {
 
-    for (const item of bytes_path_list) {
+    console.log('正在校验二进制文件');
 
-        const fbs_path = item.fbs_path;
-        const json_path = item.json_path;
-        const bytes_path = item.bytes_path;
+    for (const key in csv_all.tables) {
 
-        let test_path = path.join(paths.tests, json_path.slice(paths.json.length + 1));
-        await fs.mkdir(path.dirname(test_path), { recursive: true });
+        const table = csv_all.tables[key];
 
-        console.log(`使用 ${path.basename(fbs_path)} 测试数据 ${bytes_path}`);
+        const fbs_path = path.join(paths.fbs, table.class_relative_path + '.fbs');
 
-        const command = `${paths.flatc} --json --raw-binary ${fbs_path} -- ${bytes_path} --strict-json --defaults-json`;
-        // console.log(command);
-        chdir(path.dirname(test_path));
-        execSync(command);
+        for (const data_relative_path of table.data_relative_paths) {
 
-        const origin_json_content = await fs.readFile(json_path, 'utf8');
-        const test_json_content = await fs.readFile(test_path, 'utf8');
+            const json_path = path.join(paths.json, data_relative_path + '.json');
+            const bin_path = path.join(paths.bytes, data_relative_path + '.bin');
+            const test_path = path.join(paths.tests, data_relative_path + '.json');
 
-        const origin = JSON.parse(origin_json_content);
-        const test = JSON.parse(test_json_content);
+            await fs.mkdir(path.dirname(test_path), { recursive: true });
 
-        const origin_json = JSON.stringify(origin, null, 0);
-        const test_json = JSON.stringify(test, null, 0);
+            console.log(`使用 ${path.basename(fbs_path)} 测试数据 ${bin_path}`);
 
-        if (origin_json !== test_json) {
-            console.error(`测试失败 ${bytes_path}`);
-            console.error(`原始数据 ${origin_json}`);
-            console.error(`测试数据 ${test_json}`);
-        }
-        else {
-            console.log(`测试成功 ${bytes_path}`);
-            await fs.rename(bytes_path, bytes_path.substring(0, bytes_path.length - '.bin'.length) + '.bytes');
+            const command = `${paths.flatc} --json --raw-binary ${fbs_path} -- ${bin_path} --strict-json --defaults-json`;
+            // console.log(command);
+            chdir(path.dirname(test_path));
+            execSync(command);
+
+            const origin_json_content = await fs.readFile(json_path, 'utf8');
+            const test_json_content = await fs.readFile(test_path, 'utf8');
+
+            const origin = JSON.parse(origin_json_content);
+            const test = JSON.parse(test_json_content);
+
+            const origin_json = JSON.stringify(origin, null, 0);
+            const test_json = JSON.stringify(test, null, 0);
+
+            if (origin_json !== test_json) {
+                console.error(`测试失败 ${bin_path}`);
+                console.error(`原始数据 ${origin_json}`);
+                console.error(`测试数据 ${test_json}`);
+            }
+            else {
+                console.log(`测试成功 ${bin_path}`);
+                await fs.rename(bin_path, bin_path.substring(0, bin_path.length - '.bin'.length) + '.bytes');
+            }
         }
     }
 }
