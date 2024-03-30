@@ -60,9 +60,9 @@ namespace Service
             IsConnecting = false;
         }
 
-        private void OnClosed(string url)
+        private void OnClosed(string url, ushort code, string reason)
         {
-            Log.W("WsConnect", "OnClosed");
+            Log.W("WsConnect", "OnClosed", url, code, reason);
             IsReady = false;
             IsConnecting = false;
         }
@@ -91,7 +91,7 @@ namespace Service
             IsReady = false;
             IsConnecting = true;
 
-            Pinus.Connect(Constants.WS_SERVER, false);
+            Pinus.Connect(Constants.WS_SERVER);
 
             while (IsConnecting)
             {

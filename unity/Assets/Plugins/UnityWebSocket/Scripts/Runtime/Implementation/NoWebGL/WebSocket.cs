@@ -5,6 +5,7 @@ using System;
 using System.Net.WebSockets;
 using Cysharp.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace UnityWebSocket
 {
@@ -63,6 +64,14 @@ namespace UnityWebSocket
 
         public void ConnectAsync()
         {
+            ConnectAsync(CancellationToken.None);
+        }
+
+        public void ConnectAsync(CancellationToken cancellationToken)
+        {
+#if UNITY_WEBSOCKET_LOG
+            Log.D($"ConnectAsync");
+#endif
             System.Net.ServicePointManager.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
             // System.Net.ServicePointManager.ServerCertificateValidationCallback =
             //  ClientWebSocketOptions.RemoteCertificateValidationCallback
@@ -86,7 +95,7 @@ namespace UnityWebSocket
                     socket.Options.AddSubProtocol(protocol);
                 }
             }
-            ConnectTask().Forget();
+            ConnectTask(cancellationToken).Forget();
         }
 
         public void CloseAsync()
@@ -95,8 +104,7 @@ namespace UnityWebSocket
             SendBufferAsync(null, WebSocketMessageType.Close);
         }
 
-
-        private async UniTask ConnectTask()
+        private async UniTask ConnectTask(CancellationToken cancellationToken)
         {
 #if UNITY_WEBSOCKET_LOG
             Log.D("Connect Task Begin ...");
@@ -105,7 +113,7 @@ namespace UnityWebSocket
             try
             {
                 var uri = new Uri(Address);
-                await socket.ConnectAsync(uri, CancellationToken.None);
+                await socket.ConnectAsync(uri, cancellationToken);
             }
             catch (Exception e)
             {
@@ -193,7 +201,7 @@ namespace UnityWebSocket
 #if UNITY_WEBSOCKET_LOG
                         Log.D("Send, type:", st.Type, "len:", st.Buffer.Length, "size:", st.Buffer.Bytes, "queue left:", sendQueue.Count);
 #endif
-                        await socket.SendAsync(new ArraySegment<byte>(st.Buffer.Bytes, 0, st.Buffer.Length), st.Type, true, CancellationToken.None);
+                        await socket.SendAsync(new ReadOnlyMemory<byte>(st.Buffer.Bytes, 0, st.Buffer.Length), st.Type, true, CancellationToken.None);
                         st.Buffer.Dispose();
                         st.Buffer = null;
                     }
@@ -222,7 +230,7 @@ namespace UnityWebSocket
             string closeReason = "";
             ushort closeCode = 0;
             bool isClosed = false;
-            var segment = new ArraySegment<byte>(new byte[4096]);
+            var memory = new Memory<byte>(new byte[4096]);
 
             try
             {
@@ -230,9 +238,10 @@ namespace UnityWebSocket
                 int index = 0;
                 while (!isClosed)
                 {
-                    var result = await socket.ReceiveAsync(segment, CancellationToken.None);
+                    var result = await socket.ReceiveAsync(memory, CancellationToken.None);
                     if (buffer == null) buffer = XPool.XBuffer.Get();
-                    buffer.Write(segment.Array, 0, result.Count, index);
+                    // 如果一次没有收完, 继续收
+                    buffer.Write(memory, 0, result.Count, index);
                     if (!result.EndOfMessage)
                     {
                         index += result.Count;
@@ -247,8 +256,6 @@ namespace UnityWebSocket
                             break;
                         case WebSocketMessageType.Close:
                             isClosed = true;
-                            closeCode = (ushort)result.CloseStatus;
-                            closeReason = result.CloseStatusDescription;
                             break;
                         default:
                             break;
@@ -259,9 +266,10 @@ namespace UnityWebSocket
             catch (Exception e)
             {
                 HandleError(e);
-                closeCode = (ushort)CloseStatusCode.Abnormal;
-                closeReason = e.Message;
             }
+
+            closeCode = (ushort)socket.CloseStatus;
+            closeReason = socket.CloseStatusDescription;
 
             HandleClose(closeCode, closeReason);
             SocketDispose();

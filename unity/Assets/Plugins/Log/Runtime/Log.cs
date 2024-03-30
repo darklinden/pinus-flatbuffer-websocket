@@ -90,6 +90,12 @@ public static partial class Log
             return BytesToStr((byte[])obj, depth);
         }
 
+        if (depth >= 3)
+        {
+            // 防止递归
+            return obj.ToString();
+        }
+
         if (obj is IList)
         {
             StringBuilder buff = GetSb();
@@ -102,7 +108,7 @@ public static partial class Log
                     buff.Append("\n");
                 }
 
-                buff.Append(ObjectToStr(item));
+                buff.Append(ObjectToStr(item, depth + 1));
             }
 
             buff.Append("]");
@@ -123,9 +129,9 @@ public static partial class Log
                     buff.Append("\n");
                 }
 
-                buff.Append(ObjectToStr(item.Key));
+                buff.Append(ObjectToStr(item.Key, depth + 1));
                 buff.Append(":");
-                buff.Append(ObjectToStr(item.Value));
+                buff.Append(ObjectToStr(item.Value, depth + 1));
             }
 
             buff.Append("}");
@@ -298,5 +304,38 @@ public static partial class Log
         Profiler.EndSample();
 
         s_ErrToast?.Invoke(result);
+    }
+
+
+    // 即使关闭日志也会输出错误
+    public static void AssertIsTrue(bool value, object message0 = null, object message1 = null, object message2 = null, object message3 = null,
+            object message4 = null, object message5 = null, object message6 = null, object message7 = null,
+            object message8 = null, object message9 = null, object message10 = null, object message11 = null,
+            object message12 = null, object message13 = null, object message14 = null)
+    {
+        if (!value)
+        {
+
+
+            var prefix = "[A]:";
+
+
+            string result = string.Empty;
+
+            if (message0 == null)
+            {
+                result = ObjectsToString(prefix, "IsTrue failed");
+            }
+            else
+            {
+                result = ObjectsToString(prefix, message0, message1, message2, message3,
+                 message4, message5, message6, message7,
+                 message8, message9, message10, message11,
+                 message12, message13, message14);
+            }
+
+            UnityEngine.Debug.LogError(result);
+
+        }
     }
 }

@@ -9,6 +9,6 @@ namespace PinusUnity
         public void OnOpen();
         public void OnRecv(XPool.XBuffer data);
         public void OnError(string err);
-        public void OnClose();
+        public void OnClose(ushort code, string reason);
     }
 }

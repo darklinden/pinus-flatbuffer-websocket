@@ -34,7 +34,7 @@ namespace XPool
             if (parent != null)
             {
                 gt.SetParent(parent);
-                if (parent.GetComponent<RectTransform>() != null)
+                if (parent.TryGetComponent<RectTransform>(out var _))
                 {
                     gt = go.AddComponent<RectTransform>();
                 }

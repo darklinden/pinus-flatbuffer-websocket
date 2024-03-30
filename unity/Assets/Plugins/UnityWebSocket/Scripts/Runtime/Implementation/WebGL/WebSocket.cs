@@ -79,6 +79,15 @@ namespace UnityWebSocket
             if (code < 0) HandleOnError(GetErrorMessageFromCode(code));
         }
 
+        public void ConnectAsync(System.Threading.CancellationToken cancellationToken)
+        {
+            Log.W("ConnectAsync with CancellationToken is not supported on WebGL platform.");
+#if UNITY_WEBSOCKET_LOG
+            Log.D("Connect with instanceId", instanceId);
+#endif
+            ConnectAsync();
+        }
+
         public void CloseAsync()
         {
 #if UNITY_WEBSOCKET_LOG

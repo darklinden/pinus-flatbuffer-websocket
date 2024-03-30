@@ -52,8 +52,7 @@ namespace XPool
                     break;
                 case GameObjectPoolHideType.UIAlpha:
                     {
-                        var cg = go.GetComponent<CanvasGroup>();
-                        if (cg != null)
+                        if (go.TryGetComponent<CanvasGroup>(out var cg))
                         {
                             cg.alpha = 0f;
                             cg.blocksRaycasts = false;
@@ -75,8 +74,7 @@ namespace XPool
                     break;
                 case GameObjectPoolHideType.UIAlpha:
                     {
-                        var cg = go.GetComponent<CanvasGroup>();
-                        if (cg != null)
+                        if (go.TryGetComponent<CanvasGroup>(out var cg))
                         {
                             cg.alpha = 1f;
                             cg.blocksRaycasts = true;
@@ -93,7 +91,7 @@ namespace XPool
             if (parent != null)
             {
                 gt.SetParent(parent, false);
-                if (parent.GetComponent<RectTransform>() != null)
+                if (parent.TryGetComponent<RectTransform>(out var _))
                 {
                     gt = go.AddComponent<RectTransform>();
                 }
@@ -284,8 +282,7 @@ namespace XPool
             {
                 ShowObject(go);
                 go.transform.SetParent(Transform);
-                RectTransform grt = null;
-                if ((grt = go.GetComponent<RectTransform>()) != null)
+                if (go.TryGetComponent<RectTransform>(out var grt))
                 {
                     grt.localPosition = Vector3.zero;
                     grt.localRotation = Quaternion.identity;

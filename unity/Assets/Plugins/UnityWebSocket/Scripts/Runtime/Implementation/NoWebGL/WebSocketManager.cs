@@ -29,8 +29,8 @@ namespace UnityWebSocket
         {
             GameObject go = GameObject.Find("/" + rootName);
             if (!go) go = new GameObject(rootName);
-            _instance = go.GetComponent<WebSocketManager>();
-            if (!_instance) _instance = go.AddComponent<WebSocketManager>();
+            if (!go.TryGetComponent<WebSocketManager>(out _instance))
+                _instance = go.AddComponent<WebSocketManager>();
         }
 
         private readonly List<WebSocket> sockets = new List<WebSocket>();

@@ -8,10 +8,10 @@ public static class Pinus
     public static Network Network { get; set; }
     public static EventBus EventBus { get => EventBus.Instance; }
 
-    public static void Connect(string url, bool autoReconnect = false)
+    public static void Connect(string url)
     {
         if (Network == null) Network = Network.Default;
-        Network.Connect(url, autoReconnect);
+        Network.Connect(url);
     }
 
     public static void Disconnect()
@@ -40,5 +40,11 @@ public static class Pinus
     public static void Notify(string route, ByteBuffer data)
     {
         if (Network != null) Network.Notify(route, data);
+    }
+
+    public static void CleanUp()
+    {
+        if (Network != null) Network.CleanUp();
+        EventBus.CleanUp();
     }
 }

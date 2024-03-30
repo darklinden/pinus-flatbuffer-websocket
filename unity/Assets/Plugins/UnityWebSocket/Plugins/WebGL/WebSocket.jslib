@@ -197,13 +197,20 @@ var WebSocketLibrary =
         };
 
         instance.ws.onclose = function (ev) {
+            var code = 0;
+            var reason = "";
+            if (ev) {
+                code = ev.code;
+                reason = ev.reason;
+            }
+            console.log("[JSLIB WebSocket] onclose " + code + " " + reason);
             if (webSocketManager.onClose) {
-                var msg = ev.reason;
+                var msg = reason;
                 var length = lengthBytesUTF8(msg) + 1;
                 var buffer = _malloc(length);
                 stringToUTF8(msg, buffer, length);
                 try {
-                    Module.dynCall_viii(webSocketManager.onClose, instanceId, ev.code, buffer);
+                    Module.dynCall_viii(webSocketManager.onClose, instanceId, code, buffer);
                 }
                 finally {
                     _free(buffer);
@@ -253,7 +260,8 @@ var WebSocketLibrary =
         if (instance.ws.readyState !== 1) return -6;
 
         let buffer = HEAPU8.slice(bufferPtr, bufferPtr + length);
-        instance.ws.send(wx ? buffer.buffer : buffer);
+        let isWx = typeof wx != 'undefined';
+        instance.ws.send(isWx ? buffer.buffer : buffer);
 
         return 0;
     },

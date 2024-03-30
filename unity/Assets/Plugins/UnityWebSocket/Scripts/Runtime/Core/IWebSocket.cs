@@ -5,6 +5,7 @@ namespace UnityWebSocket
     public interface IWebSocket
     {
         void ConnectAsync();
+        void ConnectAsync(System.Threading.CancellationToken cancellationToken);
 
         void CloseAsync();
 

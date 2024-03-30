@@ -4,6 +4,7 @@ using UnityEngine;
 using Google.FlatBuffers;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using UnityWebSocket;
 
 namespace PinusUnity
 {
@@ -25,6 +26,15 @@ namespace PinusUnity
                 old.Disconnect();
                 _instances.Remove(key);
             }
+        }
+
+        public static void CleanUp()
+        {
+            foreach (var kv in _instances)
+            {
+                kv.Value.Disconnect();
+            }
+            _instances.Clear();
         }
 
         public static Network Get(string key)
@@ -53,19 +63,19 @@ namespace PinusUnity
 
         public bool IsConnected { get { return Client != null && Client.IsConnected; } }
 
-        protected bool m_AutoReconnect = true;
-        public bool AutoReconnect { get => m_AutoReconnect; set => m_AutoReconnect = value; }
-
-        protected bool Reconnecting { get; set; }
-        protected int ReconnectAttempt { get; set; }
-
-        protected int m_MaxReconnectAttempts = 3;
-        public int MaxReconnectAttempts { get => m_MaxReconnectAttempts; set => m_MaxReconnectAttempts = value; }
-
+        // 心跳检测累计时间 累加
         protected float HeartbeatPassed { get; set; }
+        // 心跳检测发送间隔 倒计时
+        protected float HeartbeatSendDelay { get; set; }
+        // 心跳检测发送间隔时长
         protected float HeartbeatInterval { get; set; }
+        // 心跳检测多次发送间隔时长
+        protected float HeartbeatSendInterval { get; set; }
+        // 心跳检测超时时长
         protected float HeartbeatTimeout { get; set; }
-        protected bool ShouldHeartbeat { get; set; }
+        // 心跳检测需发送
+        protected bool ShouldHeartbeat { get; set; } = false;
+
         public bool HandshakeEnded { get; private set; } = false;
 
         protected int m_RequestId = 1;
@@ -107,14 +117,7 @@ namespace PinusUnity
 
         public void OnOpen()
         {
-            if (Reconnecting)
-            {
-                EventBus.Instance.Reconnected(Url);
-            }
-
             EventBus.Instance.Connected(Url);
-
-            ResetReconnect();
 
 #if PINUS_LOG
             Log.D("OnOpen SendHandshake");
@@ -125,56 +128,38 @@ namespace PinusUnity
         public void OnRecv(XPool.XBuffer data)
         {
             ProcessPackage(data);
-
-            // 发现特殊情况下会导致服务器心跳超时，所以这里不更新心跳时间
-            // new package arrived, update the heartbeat timeout
-            // RenewHeartbeatTimeout();
         }
 
         public void OnError(string err)
         {
             HandshakeEnded = false;
+            ShouldHeartbeat = false;
             Log.W("Pinus OnError:", Url, err);
             EventBus.Instance.Error(Url, err);
         }
 
-        public void OnClose()
+        public void OnClose(ushort closeCode, string closeReason)
         {
             HandshakeEnded = false;
-            EventBus.Instance.Closed(Url);
-
-            if (AutoReconnect && ReconnectAttempt < MaxReconnectAttempts)
-            {
-                Reconnecting = true;
-                ReconnectAttempt++;
-                Connect();
-            }
+            ShouldHeartbeat = false;
+            Log.W("Pinus OnClose:", Url, closeCode, closeReason);
+            EventBus.Instance.Closed(Url, closeCode, closeReason);
         }
 
         public void ConnectTimeout()
         {
             HandshakeEnded = false;
             EventBus.Instance.Error(Url, "Connect Timeout");
-            if (ReconnectAttempt < MaxReconnectAttempts)
-            {
-                Reconnecting = true;
-                ReconnectAttempt++;
-                Connect();
-            }
         }
 
         // --- Socket end ---
-
-        protected void ResetReconnect()
-        {
-            HandshakeEnded = false;
-            Reconnecting = false;
-            ReconnectAttempt = 0;
-        }
-
         protected void RenewHeartbeatTimeout()
         {
+#if PINUS_LOG
+            Log.D("RenewHeartbeatTimeout");
+#endif
             HeartbeatPassed = 0;
+            HeartbeatSendDelay = 0;
         }
 
         void OnHandshake(byte[] data, int offset, int length)
@@ -217,9 +202,9 @@ namespace PinusUnity
 
             if (heartbeat != 0)
             {
-                HeartbeatInterval = heartbeat;        // heartbeat interval
-                HeartbeatInterval = HeartbeatInterval > 2 ? HeartbeatInterval - 1 : 1; // heartbeat after 1s
-                HeartbeatTimeout = HeartbeatInterval * 2;   // max heartbeat timeout
+                HeartbeatInterval = heartbeat;          // 间隔 HeartbeatInterval 发送心跳
+                HeartbeatSendInterval = heartbeat <= 1 ? heartbeat / 5f : 1;              // 发送心跳后 间隔 HeartbeatSendInterval 再次发送
+                HeartbeatTimeout = heartbeat * 2;       // 超时时间
             }
             else
             {
@@ -250,10 +235,13 @@ namespace PinusUnity
         {
             if (HeartbeatInterval == 0)
             {
-                // no heartbeat
                 return;
             }
 
+            // 当收到服务器的心跳包时，更新心跳超时时间, 并设置下一次心跳
+            RenewHeartbeatTimeout();
+
+            // 服务器收到 HandShakeAck 后会回复 Heartbeat, 这时开始心跳检测
             ShouldHeartbeat = true;
         }
 
@@ -263,38 +251,42 @@ namespace PinusUnity
 
             if (!Client.IsConnected)
             {
-                HeartbeatPassed = 0;
+                // 如果连接已断开, 不关心心跳检测
+                ShouldHeartbeat = false;
                 return;
             }
+
+            if (!ShouldHeartbeat) return;
 
             var dt = Time.unscaledDeltaTime;
 
+            // 计时
             HeartbeatPassed += dt;
+            HeartbeatSendDelay -= dt;
 
-            if (ShouldHeartbeat)
+            // 如果累计时间大于超时检测时间 准备发送心跳
+            if (HeartbeatPassed > HeartbeatInterval)
             {
-                if (HeartbeatPassed > HeartbeatInterval)
+                // 当延迟剩余小于等于 0 时, 发送
+                if (HeartbeatSendDelay <= 0)
                 {
-                    Client.SendBuffer(Package.SimplePack(PackageType.Heartbeat));
 #if PINUS_LOG
-                    Log.D("SendHeartbeat RenewHeartbeatTimeout");
+                    Log.D("Pinus Send Heartbeat");
 #endif
-                    RenewHeartbeatTimeout();
+                    // 设置发送延迟, 防止重复多次发送
+                    HeartbeatSendDelay = HeartbeatSendInterval;
+                    Client.SendBuffer(Package.SimplePack(PackageType.Heartbeat));
                 }
-                return;
             }
 
+            // 如果累计时间大于超时时间, 进入超时错误处理
             if (HeartbeatPassed > HeartbeatTimeout)
             {
 #if PINUS_LOG
-                Log.D("Pinus Server Heartbeat Timeout");
+                Log.D("Pinus Heartbeat Timeout");
 #endif
-                if (ReconnectAttempt < MaxReconnectAttempts)
-                {
-                    Reconnecting = true;
-                    ReconnectAttempt++;
-                    Connect();
-                }
+                Client.Close();
+                OnClose((ushort)CloseStatusCode.Abnormal, "Heartbeat Timeout");
             }
         }
 
@@ -363,6 +355,7 @@ namespace PinusUnity
             }
 
             EventDispatcher.Dispatch(routeStr, bb);
+            bb.Dispose();
         }
 
         void OnKick(byte[] data, int offset, int length)
@@ -411,30 +404,23 @@ namespace PinusUnity
             }
         }
 
-        public void Connect(string url, bool autoReconnect = true)
+        public void Connect(string url)
         {
             Url = url;
-            AutoReconnect = autoReconnect;
             Connect();
         }
 
         protected void Connect()
         {
-            DoDisconnect();
+            Disconnect();
 
             Client.Connect();
         }
 
         public void Disconnect()
         {
-            AutoReconnect = false;
-            DoDisconnect();
-        }
-
-        protected void DoDisconnect()
-        {
             HandshakeEnded = false;
-            Reconnecting = false;
+            ShouldHeartbeat = false;
             Client.Close();
         }
 
@@ -508,6 +494,13 @@ namespace PinusUnity
             }
 
             var requestId = GenerateUniqueRequestId();
+
+            if (m_RouteMap.ContainsKey(route) == false)
+            {
+                Log.E("Pinus Network AsyncRequest Error: Unknown Route: " + route, m_RouteMap);
+                return null;
+            }
+
             var routeCode = m_RouteMap[route];
 
             var completionSource = AutoResetUniTaskCompletionSource<ByteBuffer>.Create();

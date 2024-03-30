@@ -21,8 +21,9 @@ namespace PinusUnity
             GameObject go = GameObject.Find("/[Pinus-Event-Manager]");
             if (go == null) go = new GameObject("[Pinus-Event-Manager]");
             UnityEngine.Object.DontDestroyOnLoad(go);
-            _instance = go.GetComponent<EventBus>();
-            if (_instance == null) _instance = go.AddComponent<EventBus>();
+
+            if (go.TryGetComponent(out _instance) == false)
+                _instance = go.AddComponent<EventBus>();
         }
 
         public event Event.FrameUpdated OnFrameUpdated;
@@ -37,16 +38,10 @@ namespace PinusUnity
             if (OnConnected != null) OnConnected(url);
         }
 
-        public event Event.Reconnected OnReconnected;
-        public void Reconnected(string url)
-        {
-            if (OnReconnected != null) OnReconnected(url);
-        }
-
         public event Event.Closed OnClosed;
-        public void Closed(string url)
+        public void Closed(string url, ushort closeCode, string closeReason)
         {
-            if (OnClosed != null) OnClosed(url);
+            if (OnClosed != null) OnClosed(url, closeCode, closeReason);
         }
 
         public event Event.Error OnError;
@@ -71,6 +66,18 @@ namespace PinusUnity
         public void BeenKicked(string url)
         {
             if (OnBeenKicked != null) OnBeenKicked(url);
+        }
+
+        internal void CleanUp()
+        {
+            OnFrameUpdated = null;
+            OnConnected = null;
+            OnClosed = null;
+            OnError = null;
+            OnHandshakeError = null;
+            OnHandshakeOver = null;
+            OnBeenKicked = null;
+            Destroy(gameObject);
         }
     }
 }

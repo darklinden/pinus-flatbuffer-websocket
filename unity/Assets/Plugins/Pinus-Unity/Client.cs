@@ -48,7 +48,7 @@ namespace PinusUnity
 
             try
             {
-                m_Ws = new WebSocket(this.Url, "binary");
+                m_Ws = new WebSocket(this.Url);
                 m_Ws.OnOpen += OnOpen;
                 m_Ws.OnClose += OnClose;
                 m_Ws.OnError += OnError;
@@ -95,7 +95,7 @@ namespace PinusUnity
 #endif
             if (!m_ManuallyClosed)
             {
-                m_NetworkHandle.OnClose();
+                m_NetworkHandle.OnClose(e.CloseCode, e.CloseReason);
             }
             Close();
         }
