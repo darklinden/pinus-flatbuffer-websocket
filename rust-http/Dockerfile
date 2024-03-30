@@ -1,16 +1,22 @@
-FROM rust:1.69.0-bullseye as builder
-WORKDIR /usr/src/app
-COPY . .
-RUN cargo install --path .
+FROM rust:1.76.0-alpine3.18 as builder
 
-FROM debian:bullseye-slim
-# RUN apt-get update
-# RUN apt-get install -y <extra-runtime-dependencies>
-# RUN rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/cargo/bin/rust-http /usr/local/bin/app
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates pkgconfig openssl-dev libc-dev alpine-sdk openssl libgcc libstdc++
+
+WORKDIR /usr/src/app
+
+COPY . .
+
+RUN RUSTFLAGS="-Ctarget-feature=-crt-static" cargo build --release
+
+FROM alpine:3.18
+
+RUN apk add --no-cache ca-certificates openssl libgcc
+
+COPY --from=builder /usr/src/app/target/release/rust-http /usr/local/bin/app
 
 ENV RUST_LOG="info"
 ENV ENVIRONMENT="production"
 EXPOSE 3000
 
-CMD ["app"]
+CMD ["/usr/local/bin/app"]
