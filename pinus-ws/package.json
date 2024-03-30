@@ -7,7 +7,10 @@
     "scripts": {
         "test": "npm run build && cd dist && node app",
         "watch": "tsc --watch --noEmit --noErrorTruncation --pretty",
-        "build": "tsc && node ./tools/copy --from=config --to=dist/config"
+        "build": "tsc && node ./tools/copy --from=config --to=dist/config",
+        "start:master": "cd dist && pinus start -i master",
+        "add:connector": "cd dist && yarn pinus -h 127.0.0.1 -P 3005 -u admin -p admin add host=127.0.0.1 port=3152 serverType=connector id=connector-server-3 clientPort=3012 frontend=true",
+        "show:servers": "cd dist && pinus -h 127.0.0.1 -P 3005 -u admin -p admin list"
     },
     "prisma": {
         "schema": "prisma/schema.prisma"
