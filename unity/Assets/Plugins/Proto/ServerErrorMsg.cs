@@ -13,7 +13,7 @@ public struct ServerErrorMsg : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_24_3_25(); }
   public static ServerErrorMsg GetRoot(ByteBuffer _bb) { return GetRoot(_bb, new ServerErrorMsg()); }
   public static ServerErrorMsg GetRoot(ByteBuffer _bb, ServerErrorMsg obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public static bool VerifyServerErrorMsg(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, ServerErrorMsgVerify.Verify); }

@@ -14,115 +14,136 @@
  * limitations under the License.
  */
 
+// There are three conditional compilation symbols that have an impact on performance/features of this ByteBuffer implementation.
+//
+//      UNSAFE_BYTEBUFFER
+//          This will use unsafe code to manipulate the underlying byte array. This
+//          can yield a reasonable performance increase.
+//
+//      BYTEBUFFER_NO_BOUNDS_CHECK
+//          This will disable the bounds check asserts to the byte array. This can
+//          yield a small performance gain in normal code.
+//
+//      ENABLE_SPAN_T
+//          This will enable reading and writing blocks of memory with a Span<T> instead of just
+//          T[].  You can also enable writing directly to shared memory or other types of memory
+//          by providing a custom implementation of ByteBufferAllocator.
+//          ENABLE_SPAN_T also requires UNSAFE_BYTEBUFFER to be defined, or .NET
+//          Standard 2.1.
+//
+// Using UNSAFE_BYTEBUFFER and BYTEBUFFER_NO_BOUNDS_CHECK together can yield a
+// performance gain of ~15% for some operations, however doing so is potentially
+// dangerous. Do so at your own risk!
+//
+
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using XPool;
-using UnityWebSocket;
+
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
+using System.Buffers.Binary;
+#endif
+
+#if ENABLE_SPAN_T && !UNSAFE_BYTEBUFFER
+#warning ENABLE_SPAN_T requires UNSAFE_BYTEBUFFER to also be defined
+#endif
 
 namespace Google.FlatBuffers
 {
-    public class ByteBuffer : IDisposable
+    public abstract class ByteBufferAllocator
     {
-        public class Pool
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
+        public abstract Span<byte> Span { get; }
+        public abstract ReadOnlySpan<byte> ReadOnlySpan { get; }
+        public abstract Memory<byte> Memory { get; }
+        public abstract ReadOnlyMemory<byte> ReadOnlyMemory { get; }
+
+#else
+        public virtual byte[] Buffer
         {
-            const int kMaxBucketSize = 64 * 10;
+            get;
+            protected set;
+        }
+#endif
 
-            readonly Stack<ByteBuffer> m_Pool;
-
-            public Pool()
-            {
-                m_Pool = new Stack<ByteBuffer>();
-            }
-
-            /// <summary>
-            /// The array length is not always accurate.
-            /// </summary>
-            /// <exception cref="ArgumentOutOfRangeException"></exception>
-            public ByteBuffer Rent()
-            {
-                if (m_Pool.Count != 0)
-                {
-                    // Log.D("PooledList Rent from pool");
-                    return m_Pool.Pop();
-                }
-
-                return new ByteBuffer();
-            }
-
-            /// <summary>
-            /// <para> Return the array to the pool. </para>
-            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
-            /// </summary>
-            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(ByteBuffer buffer)
-            {
-                if (buffer == null) return;
-                if (m_Pool.Count < kMaxBucketSize)
-                {
-                    m_Pool.Push(buffer);
-                }
-                else
-                {
-                    Log.E("PooledList Pool is full");
-                }
-            }
-
-            /// <summary>
-            /// <para> Return the array to the pool and set array reference to null. </para>
-            /// <para> The length of the array must be greater than or equal to 8 and a power of 2. </para>
-            /// </summary>
-            /// <param name="array"> The length of the array must be greater than or equal to 8 and a power of 2. </param>
-            public void Return(ref ByteBuffer buffer)
-            {
-                Return(buffer);
-                buffer = null;
-            }
+        public int Length
+        {
+            get;
+            protected set;
         }
 
-        internal static readonly Pool BufferPool = new Pool();
+        public abstract void GrowFront(int newSize);
+        public virtual void Resize(int initialSize) { }
+        public virtual void Clear() { }
+        public virtual void SetBytes(byte[] bytes) { }
+    }
 
-        internal static ByteBuffer Get()
+    public sealed class ByteArrayAllocator : ByteBufferAllocator
+    {
+        private byte[] _buffer;
+
+        public ByteArrayAllocator(byte[] buffer)
         {
-            var buffer = BufferPool.Rent();
-            return buffer;
+            _buffer = buffer;
+            InitBuffer();
         }
 
-        public void Resize(int initialSize)
+        public override void GrowFront(int newSize)
         {
-            _buffer.Resize(initialSize);
+            if ((Length & 0xC0000000) != 0)
+                throw new Exception(
+                    "ByteBuffer: cannot grow buffer beyond 2 gigabytes.");
+
+            if (newSize < Length)
+                throw new Exception("ByteBuffer: cannot truncate buffer.");
+
+            byte[] newBuffer = new byte[newSize];
+            System.Buffer.BlockCopy(_buffer, 0, newBuffer, newSize - Length, Length);
+            _buffer = newBuffer;
+            InitBuffer();
         }
 
-        private ByteArrayAllocator _buffer;
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
+        public override Span<byte> Span => _buffer;
+        public override ReadOnlySpan<byte> ReadOnlySpan => _buffer;
+        public override Memory<byte> Memory => _buffer;
+        public override ReadOnlyMemory<byte> ReadOnlyMemory => _buffer;
+#endif
+
+        private void InitBuffer()
+        {
+            Length = _buffer.Length;
+#if !ENABLE_SPAN_T
+            Buffer = _buffer;
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Class to mimic Java's ByteBuffer which is used heavily in Flatbuffers.
+    /// </summary>
+    public partial class ByteBuffer
+    {
+        private ByteBufferAllocator _buffer;
         private int _pos;  // Must track start of the buffer.
 
-        public ByteBuffer()
+        public ByteBuffer(ByteBufferAllocator allocator, int position)
         {
-            _buffer = new ByteArrayAllocator();
-            _pos = 0;
+            _buffer = allocator;
+            _pos = position;
         }
 
-        public ByteBuffer(byte[] data)
-        {
-            _buffer = new ByteArrayAllocator();
-            _buffer.SetBytes(data);
-            _pos = 0;
-        }
+        public ByteBuffer(int size) : this(new byte[size]) { }
 
-        public void SetBytes(byte[] bytes, int pos)
+        public ByteBuffer(byte[] buffer) : this(buffer, 0) { }
+
+        public ByteBuffer(byte[] buffer, int pos)
         {
-            _buffer.SetBytes(bytes);
+            _buffer = new ByteArrayAllocator(buffer);
             _pos = pos;
-        }
-
-        public void CopyBytes(byte[] bytes, int pos, int length)
-        {
-            _buffer.Resize(length);
-            _pos = _buffer.Length - length;
-            System.Buffer.BlockCopy(bytes, pos, _buffer.Buffer, _pos, length);
         }
 
         public int Position
@@ -133,17 +154,6 @@ namespace Google.FlatBuffers
 
         public int Length { get { return _buffer.Length; } }
 
-        public void Dispose()
-        {
-            Clear();
-            BufferPool.Return(this);
-        }
-
-        private void Clear()
-        {
-            _buffer.Clear();
-        }
-
         public void Reset()
         {
             _pos = 0;
@@ -153,9 +163,7 @@ namespace Google.FlatBuffers
         // The new ByteBuffer's position will be same as this buffer's.
         public ByteBuffer Duplicate()
         {
-            ByteBuffer bb = new ByteBuffer();
-            bb.CopyBytes(_buffer.Buffer, _pos, _buffer.Length - _pos);
-            return bb;
+            return new ByteBuffer(_buffer, Position);
         }
 
         // Increases the size of the ByteBuffer, and copies the old data towards
@@ -170,16 +178,11 @@ namespace Google.FlatBuffers
             return ToArray<byte>(pos, len);
         }
 
-        public void CopyTo(XPool.XBuffer dst, int dstPos)
-        {
-            dst.Write(_buffer.Buffer, Position, Length - Position, dstPos);
-        }
-
         /// <summary>
         /// A lookup of type sizes. Used instead of Marshal.SizeOf() which has additional
         /// overhead, but also is compatible with generic functions for simplified code.
         /// </summary>
-        private static System.Collections.Generic.Dictionary<Type, int> genericSizes = new System.Collections.Generic.Dictionary<Type, int>()
+        private static Dictionary<Type, int> genericSizes = new Dictionary<Type, int>()
         {
             { typeof(bool),     sizeof(bool) },
             { typeof(float),    sizeof(float) },
@@ -237,7 +240,7 @@ namespace Google.FlatBuffers
             return SizeOf<T>() * x.Count;
         }
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         public static int ArraySize<T>(Span<T> x)
         {
             return SizeOf<T>() * x.Length;
@@ -246,7 +249,7 @@ namespace Google.FlatBuffers
 
         // Get a portion of the buffer casted into an array of type T, given
         // the buffer position and length.
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         public T[] ToArray<T>(int pos, int len)
             where T : struct
         {
@@ -259,7 +262,7 @@ namespace Google.FlatBuffers
         {
             AssertOffsetAndLength(pos, len);
             T[] arr = new T[len];
-            System.Buffer.BlockCopy(_buffer.Buffer, pos, arr, 0, ArraySize(arr));
+            Buffer.BlockCopy(_buffer.Buffer, pos, arr, 0, ArraySize(arr));
             return arr;
         }
 #endif
@@ -274,7 +277,7 @@ namespace Google.FlatBuffers
             return ToArray<byte>(0, Length);
         }
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         public ReadOnlyMemory<byte> ToReadOnlyMemory(int pos, int len)
         {
             return _buffer.ReadOnlyMemory.Slice(pos, len);
@@ -337,7 +340,7 @@ namespace Google.FlatBuffers
                     ((input & 0xFF00000000000000UL) >> 56));
         }
 
-#if !UNSAFE_BYTEBUFFER && (!ENABLE_SPAN_T || !NETSTANDARD2_1)
+#if !UNSAFE_BYTEBUFFER && !ENABLE_SPAN_T
         // Helper functions for the safe (but slower) version.
         protected void WriteLittleEndian(int offset, int count, ulong data)
         {
@@ -377,7 +380,7 @@ namespace Google.FlatBuffers
             }
             return r;
         }
-#elif ENABLE_SPAN_T && NETSTANDARD2_1
+#elif ENABLE_SPAN_T
         protected void WriteLittleEndian(int offset, int count, ulong data)
         {
             if (BitConverter.IsLittleEndian)
@@ -427,7 +430,7 @@ namespace Google.FlatBuffers
 #endif
         }
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
 
         public void PutSbyte(int offset, sbyte value)
         {
@@ -487,7 +490,7 @@ namespace Google.FlatBuffers
                 }
             }
         }
-#elif ENABLE_SPAN_T && NETSTANDARD2_1
+#elif ENABLE_SPAN_T
         public void PutStringUTF8(int offset, string value)
         {
             AssertOffsetAndLength(offset, value.Length);
@@ -664,7 +667,7 @@ namespace Google.FlatBuffers
 
 #endif // UNSAFE_BYTEBUFFER
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         public sbyte GetSbyte(int index)
         {
             AssertOffsetAndLength(index, sizeof(sbyte));
@@ -698,7 +701,7 @@ namespace Google.FlatBuffers
                 return Encoding.UTF8.GetString(buffer, len);
             }
         }
-#elif ENABLE_SPAN_T && NETSTANDARD2_1
+#elif ENABLE_SPAN_T
         public string GetStringUTF8(int startPos, int len)
         {
             return Encoding.UTF8.GetString(_buffer.Span.Slice(startPos, len));
@@ -765,7 +768,7 @@ namespace Google.FlatBuffers
 #if ENABLE_SPAN_T // && UNSAFE_BYTEBUFFER
             ReadOnlySpan<byte> span = _buffer.ReadOnlySpan.Slice(offset);
             return BinaryPrimitives.ReadUInt64LittleEndian(span);
-#else            
+#else
             fixed (byte* ptr = _buffer.Buffer)
             {
                 return BitConverter.IsLittleEndian
@@ -885,16 +888,16 @@ namespace Google.FlatBuffers
         }
 
         /// <summary>
-        /// Copies an array segment of type T into this buffer, ending at the 
-        /// given offset into this buffer. The starting offset is calculated 
+        /// Copies an array segment of type T into this buffer, ending at the
+        /// given offset into this buffer. The starting offset is calculated
         /// based on the count of the array segment and is the value returned.
         /// </summary>
         /// <typeparam name="T">The type of the input data (must be a struct)
         /// </typeparam>
-        /// <param name="offset">The offset into this buffer where the copy 
+        /// <param name="offset">The offset into this buffer where the copy
         /// will end</param>
         /// <param name="x">The array segment to copy data from</param>
-        /// <returns>The 'start' location of this buffer now, after the copy 
+        /// <returns>The 'start' location of this buffer now, after the copy
         /// completed</returns>
         public int Put<T>(int offset, ArraySegment<T> x)
             where T : struct
@@ -921,11 +924,11 @@ namespace Google.FlatBuffers
                 offset -= numBytes;
                 AssertOffsetAndLength(offset, numBytes);
                 // if we are LE, just do a block copy
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
                 MemoryMarshal.Cast<T, byte>(x).CopyTo(_buffer.Span.Slice(offset, numBytes));
 #else
                 var srcOffset = ByteBuffer.SizeOf<T>() * x.Offset;
-                System.Buffer.BlockCopy(x.Array, srcOffset, _buffer.Buffer, offset, numBytes);
+                Buffer.BlockCopy(x.Array, srcOffset, _buffer.Buffer, offset, numBytes);
 #endif
             }
             else
@@ -942,17 +945,17 @@ namespace Google.FlatBuffers
         }
 
         /// <summary>
-        /// Copies an array segment of type T into this buffer, ending at the 
-        /// given offset into this buffer. The starting offset is calculated 
+        /// Copies an array segment of type T into this buffer, ending at the
+        /// given offset into this buffer. The starting offset is calculated
         /// based on the count of the array segment and is the value returned.
         /// </summary>
         /// <typeparam name="T">The type of the input data (must be a struct)
         /// </typeparam>
-        /// <param name="offset">The offset into this buffer where the copy 
+        /// <param name="offset">The offset into this buffer where the copy
         /// will end</param>
         /// <param name="ptr">The pointer to copy data from</param>
         /// <param name="sizeInBytes">The number of bytes to copy</param>
-        /// <returns>The 'start' location of this buffer now, after the copy 
+        /// <returns>The 'start' location of this buffer now, after the copy
         /// completed</returns>
         public int Put<T>(int offset, IntPtr ptr, int sizeInBytes)
             where T : struct
@@ -980,7 +983,7 @@ namespace Google.FlatBuffers
                 // if we are LE, just do a block copy
 #if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
                 unsafe
-                { 
+                {
                     var span = new Span<byte>(ptr.ToPointer(), sizeInBytes);
                     span.CopyTo(_buffer.Span.Slice(offset, sizeInBytes));
                 }
@@ -1001,7 +1004,7 @@ namespace Google.FlatBuffers
             return offset;
         }
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         public int Put<T>(int offset, Span<T> x)
             where T : struct
         {

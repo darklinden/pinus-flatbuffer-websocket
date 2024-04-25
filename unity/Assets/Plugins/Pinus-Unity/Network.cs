@@ -104,11 +104,11 @@ namespace PinusUnity
 
         // --- Socket begin ---
         private const string HANDSHAKEBUFFER = "{\"sys\":{\"type\":\"ws\",\"version\":\"0.0.1\",\"rsa\":{}},\"user\":{}}";
-        private static XPool.XBuffer HandshakeBuffer
+        private static XBuffer HandshakeBuffer
         {
             get
             {
-                var buffer = XPool.XBuffer.Get();
+                var buffer = XBuffer.Get();
                 buffer.Write(HANDSHAKEBUFFER, Package.PKG_HEAD_BYTES);
                 Package.Encode(PackageType.Handshake, buffer, buffer.Length - Package.PKG_HEAD_BYTES);
                 return buffer;
@@ -125,7 +125,7 @@ namespace PinusUnity
             Client.SendBuffer(HandshakeBuffer);
         }
 
-        public void OnRecv(XPool.XBuffer data)
+        public void OnRecv(XBuffer data)
         {
             ProcessPackage(data);
         }
@@ -369,7 +369,7 @@ namespace PinusUnity
             Client.Close();
         }
 
-        internal void ProcessPackage(XPool.XBuffer buffer)
+        internal void ProcessPackage(XBuffer buffer)
         {
             int offset = 0;
             int length = 0;
@@ -431,7 +431,7 @@ namespace PinusUnity
             var dataLen = msg != null ? msg.Length - msg.Position : 0;
             var offset = Package.PKG_HEAD_BYTES;
 
-            var buffer = XPool.XBuffer.Get();
+            var buffer = XBuffer.Get();
             buffer.Resize(dataLen + 16);
             // encode message header
             Message.Encode(requestId, type, routeCode, buffer, ref offset);

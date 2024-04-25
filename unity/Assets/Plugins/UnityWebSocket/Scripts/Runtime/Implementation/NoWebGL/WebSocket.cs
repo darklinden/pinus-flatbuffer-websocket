@@ -135,19 +135,19 @@ namespace UnityWebSocket
         public struct SendTaskStruct
         {
             public WebSocketMessageType Type { get; set; }
-            public XPool.XBuffer Buffer { get; set; }
+            public XBuffer Buffer { get; set; }
         }
 
         private object sendQueueLock = new object();
         private System.Collections.Generic.Queue<SendTaskStruct> sendQueue = new System.Collections.Generic.Queue<SendTaskStruct>();
         private bool isSendTaskRunning;
 
-        public void SendAsync(XPool.XBuffer data)
+        public void SendAsync(XBuffer data)
         {
             SendBufferAsync(data);
         }
 
-        private void SendBufferAsync(XPool.XBuffer buffer, WebSocketMessageType type = WebSocketMessageType.Binary)
+        private void SendBufferAsync(XBuffer buffer, WebSocketMessageType type = WebSocketMessageType.Binary)
         {
             if (isSendTaskRunning)
             {
@@ -234,12 +234,12 @@ namespace UnityWebSocket
 
             try
             {
-                XPool.XBuffer buffer = null;
+                XBuffer buffer = null;
                 int index = 0;
                 while (!isClosed)
                 {
                     var result = await socket.ReceiveAsync(memory, CancellationToken.None);
-                    if (buffer == null) buffer = XPool.XBuffer.Get();
+                    if (buffer == null) buffer = XBuffer.Get();
                     // 如果一次没有收完, 继续收
                     buffer.Write(memory, 0, result.Count, index);
                     if (!result.EndOfMessage)
@@ -296,7 +296,7 @@ namespace UnityWebSocket
             HandleEventSync(evt);
         }
 
-        private void HandleMessage(XPool.XBuffer buffer)
+        private void HandleMessage(XBuffer buffer)
         {
 #if UNITY_WEBSOCKET_LOG
             Log.D("OnMessage, size:", buffer.Bytes);

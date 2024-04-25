@@ -1,4 +1,3 @@
-using System.Diagnostics;
 /*
  * Copyright 2014 Google Inc. All rights reserved.
  *
@@ -30,34 +29,8 @@ namespace Google.FlatBuffers
     /// Responsible for building up and accessing a FlatBuffer formatted byte
     /// array (via ByteBuffer).
     /// </summary>
-    public class FlatBufferBuilder
+    public partial class FlatBufferBuilder
     {
-        // -------------------------------- Instance Begin -------------------------------
-
-        public const int DefaultBuilderLength = 2 * 1024;
-        private static FlatBufferBuilder _instance_default = null;
-        private bool _is_instance_locked = false;
-        public static FlatBufferBuilder InstanceDefault
-        {
-            get
-            {
-                if (_instance_default == null)
-                {
-                    _instance_default = new FlatBufferBuilder(DefaultBuilderLength);
-                }
-
-                if (_instance_default._is_instance_locked)
-                {
-                    throw new Exception("FlatBufferBuilder.InstanceDefault is locked.");
-                }
-                _instance_default.Clear();
-                _instance_default._is_instance_locked = true;
-                return _instance_default;
-            }
-        }
-
-        // -------------------------------- Instance End -------------------------------
-
         private int _space;
         private ByteBuffer _bb;
         private int _minAlign = 1;
@@ -90,12 +63,11 @@ namespace Google.FlatBuffers
                 throw new ArgumentOutOfRangeException("initialSize",
                     initialSize, "Must be greater than zero");
             _space = initialSize;
-            _bb = ByteBuffer.Get();
-            _bb.Resize(initialSize);
+            _bb = new ByteBuffer(initialSize);
         }
 
         /// <summary>
-        /// Create a FlatBufferBuilder backed by the pased in ByteBuffer
+        /// Create a FlatBufferBuilder backed by the passed in ByteBuffer
         /// </summary>
         /// <param name="buffer">The ByteBuffer to write to</param>
         public FlatBufferBuilder(ByteBuffer buffer)
@@ -110,7 +82,6 @@ namespace Google.FlatBuffers
         /// </summary>
         public void Clear()
         {
-            _is_instance_locked = false;
             _space = _bb.Length;
             _bb.Reset();
             _minAlign = 1;
@@ -140,7 +111,7 @@ namespace Google.FlatBuffers
 
         public void Pad(int size)
         {
-            _bb.PutByte(_space -= size, 0, size);
+             _bb.PutByte(_space -= size, 0, size);
         }
 
         // Doubles the size of the ByteBuffer, and copies the old data towards
@@ -179,12 +150,12 @@ namespace Google.FlatBuffers
 
         public void PutBool(bool x)
         {
-            _bb.PutByte(_space -= sizeof(byte), (byte)(x ? 1 : 0));
+          _bb.PutByte(_space -= sizeof(byte), (byte)(x ? 1 : 0));
         }
 
         public void PutSbyte(sbyte x)
         {
-            _bb.PutSbyte(_space -= sizeof(sbyte), x);
+          _bb.PutSbyte(_space -= sizeof(sbyte), x);
         }
 
         public void PutByte(byte x)
@@ -199,7 +170,7 @@ namespace Google.FlatBuffers
 
         public void PutUshort(ushort x)
         {
-            _bb.PutUshort(_space -= sizeof(ushort), x);
+          _bb.PutUshort(_space -= sizeof(ushort), x);
         }
 
         public void PutInt(int x)
@@ -209,7 +180,7 @@ namespace Google.FlatBuffers
 
         public void PutUint(uint x)
         {
-            _bb.PutUint(_space -= sizeof(uint), x);
+          _bb.PutUint(_space -= sizeof(uint), x);
         }
 
         public void PutLong(long x)
@@ -219,7 +190,7 @@ namespace Google.FlatBuffers
 
         public void PutUlong(ulong x)
         {
-            _bb.PutUlong(_space -= sizeof(ulong), x);
+          _bb.PutUlong(_space -= sizeof(ulong), x);
         }
 
         public void PutFloat(float x)
@@ -264,7 +235,7 @@ namespace Google.FlatBuffers
             _space = _bb.Put<T>(_space, ptr, sizeInBytes);
         }
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         /// <summary>
         /// Puts a span of type T into this builder at the
         /// current offset
@@ -368,13 +339,13 @@ namespace Google.FlatBuffers
                 throw new ArgumentNullException("Cannot add a null array");
             }
 
-            if (x.Count == 0)
+            if( x.Count == 0)
             {
                 // don't do anything if the array is empty
                 return;
             }
 
-            if (!ByteBuffer.IsSupportedType<T>())
+            if(!ByteBuffer.IsSupportedType<T>())
             {
                 throw new ArgumentException("Cannot add this Type array to the builder");
             }
@@ -395,7 +366,7 @@ namespace Google.FlatBuffers
         public void Add<T>(IntPtr ptr, int sizeInBytes)
             where T : struct
         {
-            if (sizeInBytes == 0)
+            if(sizeInBytes == 0)
             {
                 // don't do anything if the array is empty
                 return;
@@ -406,18 +377,18 @@ namespace Google.FlatBuffers
                 throw new ArgumentNullException("Cannot add a null pointer");
             }
 
-            if (sizeInBytes < 0)
+            if(sizeInBytes < 0)
             {
                 throw new ArgumentOutOfRangeException("sizeInBytes", "sizeInBytes cannot be negative");
             }
 
-            if (!ByteBuffer.IsSupportedType<T>())
+            if(!ByteBuffer.IsSupportedType<T>())
             {
                 throw new ArgumentException("Cannot add this Type array to the builder");
             }
 
             int size = ByteBuffer.SizeOf<T>();
-            if ((sizeInBytes % size) != 0)
+            if((sizeInBytes % size) != 0)
             {
                 throw new ArgumentException("The given size in bytes " + sizeInBytes + " doesn't match the element size of T ( " + size + ")", "sizeInBytes");
             }
@@ -428,7 +399,7 @@ namespace Google.FlatBuffers
             Put<T>(ptr, sizeInBytes);
         }
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         /// <summary>
         /// Add a span of type T to the buffer (aligns the data and grows if necessary).
         /// </summary>
@@ -454,11 +425,8 @@ namespace Google.FlatBuffers
         /// Add a `double` to the buffer (aligns the data and grows if necessary).
         /// </summary>
         /// <param name="x">The `double` to add to the buffer.</param>
-        public void AddDouble(double x)
-        {
-            Prep(sizeof(double), 0);
-            PutDouble(x);
-        }
+        public void AddDouble(double x) { Prep(sizeof(double), 0);
+                                          PutDouble(x); }
 
         /// <summary>
         /// Adds an offset, relative to where it will be written.
@@ -565,7 +533,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable boolean value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>       
+        /// it will skip writing to the buffer.</param>
         public void AddBool(int o, bool? x) { if (x.HasValue) { AddBool(x.Value); Slot(o); } }
 
 
@@ -583,7 +551,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable sbyte value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddSbyte(int o, sbyte? x) { if (x.HasValue) { AddSbyte(x.Value); Slot(o); } }
 
         /// <summary>
@@ -600,7 +568,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable byte value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddByte(int o, byte? x) { if (x.HasValue) { AddByte(x.Value); Slot(o); } }
 
         /// <summary>
@@ -617,7 +585,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable int16 value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddShort(int o, short? x) { if (x.HasValue) { AddShort(x.Value); Slot(o); } }
 
         /// <summary>
@@ -634,7 +602,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable uint16 value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddUshort(int o, ushort? x) { if (x.HasValue) { AddUshort(x.Value); Slot(o); } }
 
         /// <summary>
@@ -651,7 +619,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable int32 value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddInt(int o, int? x) { if (x.HasValue) { AddInt(x.Value); Slot(o); } }
 
         /// <summary>
@@ -668,7 +636,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable uint32 value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddUint(int o, uint? x) { if (x.HasValue) { AddUint(x.Value); Slot(o); } }
 
         /// <summary>
@@ -685,7 +653,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable int64 value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddLong(int o, long? x) { if (x.HasValue) { AddLong(x.Value); Slot(o); } }
 
         /// <summary>
@@ -702,7 +670,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable int64 value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddUlong(int o, ulong? x) { if (x.HasValue) { AddUlong(x.Value); Slot(o); } }
 
         /// <summary>
@@ -719,7 +687,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable single value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddFloat(int o, float? x) { if (x.HasValue) { AddFloat(x.Value); Slot(o); } }
 
         /// <summary>
@@ -736,7 +704,7 @@ namespace Google.FlatBuffers
         /// </summary>
         /// <param name="o">The index into the vtable</param>
         /// <param name="x">The nullable double value to put into the buffer. If it doesn't have a value
-        /// it will skip writing to the buffer.</param>  
+        /// it will skip writing to the buffer.</param>
         public void AddDouble(int o, double? x) { if (x.HasValue) { AddDouble(x.Value); Slot(o); } }
 
         /// <summary>
@@ -771,7 +739,7 @@ namespace Google.FlatBuffers
         }
 
 
-#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+#if ENABLE_SPAN_T && UNSAFE_BYTEBUFFER
         /// <summary>
         /// Creates a string in the buffer from a Span containing
         /// a UTF8 string.
@@ -804,7 +772,7 @@ namespace Google.FlatBuffers
         {
             if (s == null)
             {
-                return new StringOffset(0);
+              return new StringOffset(0);
             }
 
             if (_sharedStringMap == null)
@@ -845,10 +813,9 @@ namespace Google.FlatBuffers
             // Write out the current vtable.
             int i = _vtableSize - 1;
             // Trim trailing zeroes.
-            for (; i >= 0 && _vtable[i] == 0; i--) { }
+            for (; i >= 0 && _vtable[i] == 0; i--) {}
             int trimmedSize = i + 1;
-            for (; i >= 0; i--)
-            {
+            for (; i >= 0 ; i--) {
                 // Offset relative to the start of the table.
                 short off = (short)(_vtable[i] != 0
                                         ? vtableloc - _vtable[i]
@@ -866,17 +833,13 @@ namespace Google.FlatBuffers
 
             // Search for an existing vtable that matches the current one.
             int existingVtable = 0;
-            for (i = 0; i < _numVtables; i++)
-            {
+            for (i = 0; i < _numVtables; i++) {
                 int vt1 = _bb.Length - _vtables[i];
                 int vt2 = _space;
                 short len = _bb.GetShort(vt1);
-                if (len == _bb.GetShort(vt2))
-                {
-                    for (int j = sizeof(short); j < len; j += sizeof(short))
-                    {
-                        if (_bb.GetShort(vt1 + j) != _bb.GetShort(vt2 + j))
-                        {
+                if (len == _bb.GetShort(vt2)) {
+                    for (int j = sizeof(short); j < len; j += sizeof(short)) {
+                        if (_bb.GetShort(vt1 + j) != _bb.GetShort(vt2 + j)) {
                             goto endLoop;
                         }
                     }
@@ -884,26 +847,23 @@ namespace Google.FlatBuffers
                     break;
                 }
 
-            endLoop: { }
+                endLoop: { }
             }
 
-            if (existingVtable != 0)
-            {
+            if (existingVtable != 0) {
                 // Found a match:
                 // Remove the current vtable.
                 _space = _bb.Length - vtableloc;
                 // Point table to existing vtable.
                 _bb.PutInt(_space, existingVtable - vtableloc);
-            }
-            else
-            {
+            } else {
                 // No match:
                 // Add the location of the current vtable to the list of
                 // vtables.
                 if (_numVtables == _vtables.Length)
                 {
                     // Arrays.CopyOf(vtables num_vtables * 2);
-                    var newvtables = new int[_numVtables * 2];
+                    var newvtables = new int[ _numVtables * 2];
                     Array.Copy(_vtables, newvtables, _vtables.Length);
 
                     _vtables = newvtables;
@@ -921,13 +881,13 @@ namespace Google.FlatBuffers
         // just been constructed.
         public void Required(int table, int field)
         {
-            int table_start = _bb.Length - table;
-            int vtable_start = table_start - _bb.GetInt(table_start);
-            bool ok = _bb.GetShort(vtable_start + field) != 0;
-            // If this fails, the caller will show what field needs to be set.
-            if (!ok)
-                throw new InvalidOperationException("FlatBuffers: field " + field +
-                                                    " must be set");
+          int table_start = _bb.Length - table;
+          int vtable_start = table_start - _bb.GetInt(table_start);
+          bool ok = _bb.GetShort(vtable_start + field) != 0;
+          // If this fails, the caller will show what field needs to be set.
+          if (!ok)
+            throw new InvalidOperationException("FlatBuffers: field " + field +
+                                                " must be set");
         }
         /// @endcond
 
@@ -944,8 +904,7 @@ namespace Google.FlatBuffers
         {
             Prep(_minAlign, sizeof(int) + (sizePrefix ? sizeof(int) : 0));
             AddOffset(rootTable);
-            if (sizePrefix)
-            {
+            if (sizePrefix) {
                 AddInt(_bb.Length - _space);
             }
             _bb.Position = _space;
@@ -1024,7 +983,7 @@ namespace Google.FlatBuffers
             for (int i = FlatBufferConstants.FileIdentifierLength - 1; i >= 0;
                  i--)
             {
-                AddByte((byte)fileIdentifier[i]);
+               AddByte((byte)fileIdentifier[i]);
             }
             Finish(rootTable, sizePrefix);
         }

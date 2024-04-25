@@ -14,12 +14,14 @@ namespace XPool
         public int PoolCapacity { get; set; } = 256;
         readonly Queue<T> m_Pool;
         public int PoolLength => m_Pool.Count;
+        private readonly Func<T> m_Factory;
 
-        public AnyPool(int capacity)
+        public AnyPool(int capacity, Func<T> factory)
         {
             if (capacity > 0)
                 PoolCapacity = capacity;
             m_Pool = new Queue<T>(PoolCapacity);
+            m_Factory = factory;
         }
 
         /// <summary>
@@ -37,7 +39,7 @@ namespace XPool
             }
 
             Profiler.BeginSample("AnyPool.GetAny Alloc");
-            var allocT = new T();
+            var allocT = m_Factory.Invoke();
             Profiler.EndSample();
             return allocT;
         }
@@ -79,10 +81,26 @@ namespace XPool
         }
 
         private static AnyPool<T> m_Shared = null;
-        public static AnyPool<T> Shared => m_Shared ?? (m_Shared = new AnyPool<T>(-1));
-        public static AnyPool<T> GenerateSharedWithCapacity(int capacity)
+        public static AnyPool<T> Shared
         {
-            m_Shared = new AnyPool<T>(capacity);
+            get
+            {
+                if (m_Shared == null)
+                {
+                    m_Shared = new AnyPool<T>(-1, () => new T());
+                }
+                return m_Shared;
+            }
+        }
+
+        public static AnyPool<T> SharedInit(int capacity, Func<T> factory)
+        {
+            if (m_Shared != null)
+            {
+                Log.W("AnyPool SharedInit already initialized");
+                return Shared;
+            }
+            m_Shared = new AnyPool<T>(capacity, factory);
             return m_Shared;
         }
 

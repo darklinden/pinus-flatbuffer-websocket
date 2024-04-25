@@ -9,7 +9,7 @@ namespace UnityWebSocket
 
         void CloseAsync();
 
-        void SendAsync(XPool.XBuffer data);
+        void SendAsync(XBuffer data);
 
         string Address { get; }
 

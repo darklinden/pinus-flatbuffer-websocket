@@ -113,7 +113,7 @@ namespace PinusUnity
             }
         }
 
-        public void SendBuffer(XPool.XBuffer buffer)
+        public void SendBuffer(XBuffer buffer)
         {
 #if PINUS_LOG
             Log.D("Pinus Client SendBuffer", buffer.Length);

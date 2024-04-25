@@ -1,20 +1,32 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.Profiling;
 
 namespace XPool
 {
     public partial class XList<T> : IEnumerable<T>, IList<T>, IDisposable
     {
+        private static AnyPool<XList<T>> sm_Pool;
+        public static AnyPool<XList<T>> SharedPool
+        {
+            get
+            {
+                if (sm_Pool == null)
+                {
+                    sm_Pool = new AnyPool<XList<T>>(16, () => new XList<T>());
+                }
+                return sm_Pool;
+            }
+        }
+
         public static XList<T> Get()
         {
-            return AnyPool<XList<T>>.Get();
+            return SharedPool.GetAny();
         }
 
         public static XList<T> Get(int minimumCapacity)
         {
-            var list = AnyPool<XList<T>>.Get();
+            var list = Get();
             list.ResetCapacity(minimumCapacity);
             return list;
         }

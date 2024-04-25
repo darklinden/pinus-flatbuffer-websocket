@@ -29,7 +29,7 @@ namespace UnityWebSocket
 
         public string CloseReason { get => Message; }
         public string Message { get; internal set; }
-        public XPool.XBuffer Data { get; internal set; }
+        public XBuffer Data { get; internal set; }
 
         public static WSEventArgs Get()
         {
