@@ -107,7 +107,7 @@ export async function relativeCopy(
             const des = path.join(to, relative);
 
             if (skip_check || !await fileEqual(src, des)) {
-                console.log('\tcopied file: ' + relative);
+                // console.log('\tcopied file: ' + relative);
                 await fs.mkdir(path.dirname(des), { recursive: true });
                 await fs.copyFile(src, des);
                 file_copied++;

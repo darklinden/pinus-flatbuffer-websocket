@@ -64,7 +64,7 @@ export async function buildFlat() {
     console.log('========================================');
     console.log('生成配置文件版本');
     console.log('----------------------------------------');
-    await generateVersion(csv_all, path.join(paths.bytes, 'version.bytes'));
+    await generateVersion(csv_all);
     console.log('========================================\n');
 
     console.log('');

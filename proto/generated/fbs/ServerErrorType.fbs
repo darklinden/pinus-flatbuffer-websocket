@@ -1,6 +1,0 @@
-namespace Proto;
-
-enum ServerErrorType : int32 {
-    ERR_SUCCESS = 0, // 通用成功 
-    ERR_FAILED = 1, // 通用失败 
-}

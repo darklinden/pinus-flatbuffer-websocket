@@ -168,23 +168,76 @@ export async function generateRustCode() {
 // @generated
 #![allow(warnings)]
 pub mod proto {
-use super::*;
+  use super::*;
 ${mod_list.join('\n')}
-
 } // proto`;
 
     await fs.writeFile(path.resolve(paths.rust, "lib.rs"), mod);
 
-}
+    // 遍历所有生成的文件 找到枚举类型 添加 #[derive(serde::Serialize, serde::Deserialize)]
+    const rust_path_list = await walkDir(paths.rust, '.rs');
+    for (const file_path of rust_path_list) {
 
-export async function generateCode(target_folder: string, language_sign: string, flag: string = '') {
-    console.log(`生成 ${language_sign} 代码`);
+        let origin_path = path.join(paths.rust, file_path);
 
-    const fbs_path_list = await walkDir(paths.fbs, '.fbs');
-    for (const file_path of fbs_path_list) {
-        const full_path = path.join(paths.fbs, file_path);
-        const command = `${paths.flatc} --${language_sign} -o ${target_folder} ${full_path} ${flag}`;
-        // console.log(command);
-        execSync(command);
+        let origin = await fs.readFile(origin_path, 'utf8');
+
+        let is_enum = false;
+        let enum_struct_name = '';
+        let enum_struct_index = -1;
+
+        let lines = origin.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const mc = line.match(/pub const ENUM_VALUES_/);
+            if (mc) {
+                is_enum = true;
+            }
+
+            if (is_enum) {
+                const mc = line.match(/pub struct (.+)\(.*\);/);
+                if (mc) {
+                    enum_struct_name = mc[1];
+                    enum_struct_index = i;
+                    break;
+                }
+            }
+        }
+
+        if (!is_enum) {
+            continue;
+        }
+
+        if (enum_struct_name == '') {
+            throw new Error(`未找到枚举类型`);
+        }
+
+        console.log(`检测到 struct: ${enum_struct_name} 行 ${enum_struct_index} 文件`);
+
+        for (let i = enum_struct_index; i >= 0; i--) {
+            let line = lines[i];
+            line = line.trim();
+
+            if (line.startsWith('#[derive(')) {
+
+                // console.log(`修改前 ${line}`);
+
+                line = line.replace(')]', ', serde::Serialize, serde::Deserialize)]');
+                // console.log(`修改后 ${line}`);
+
+                lines.splice(i, 1, line);
+                // console.log(`修改后 ${lines}`);
+
+                lines.splice(i, 0, 'extern crate serde;');
+                break;
+            }
+        }
+
+        origin = lines.join('\n');
+
+        // console.log(`修改生成的 rust 代码: ${origin}`);
+        console.log(`修改生成的 rust 代码: ${file_path}`);
+
+        await fs.writeFile(origin_path, origin);
     }
 }

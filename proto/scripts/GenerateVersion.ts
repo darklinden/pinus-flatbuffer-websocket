@@ -3,8 +3,9 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { CsvAll } from './Initialize';
 import { paths } from './Paths';
+import { git_branch, git_last_commit, git_last_commit_time } from '../tools/BuildTool';
 
-export async function generateVersion(csv_all: CsvAll, version_path: string) {
+export async function generateVersion(csv_all: CsvAll) {
 
     const md5 = crypto.createHash('md5')
 
@@ -25,7 +26,19 @@ export async function generateVersion(csv_all: CsvAll, version_path: string) {
         md5.update(contents);
     }
 
-    const version = md5.digest("hex");
-    console.log('version: ', version);
-    await fs.writeFile(version_path, version, 'utf8');
+    const bytes_md5 = md5.digest("hex");
+    console.log('bytes md5: ', bytes_md5);
+
+    const branch = git_branch(paths.bytes);
+    const commit = git_last_commit(paths.bytes);
+    const time = git_last_commit_time(paths.bytes);
+
+    const version_info = JSON.stringify({
+        md5: bytes_md5,
+        branch,
+        commit,
+        time,
+    });
+
+    await fs.writeFile(path.join(paths.bytes, 'ver.json'), version_info, 'utf8');
 }
