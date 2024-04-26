@@ -6,6 +6,7 @@ using System.Net.WebSockets;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 using System.Threading.Tasks;
+using XPool;
 
 namespace UnityWebSocket
 {
@@ -199,7 +200,7 @@ namespace UnityWebSocket
                     else
                     {
 #if UNITY_WEBSOCKET_LOG
-                        Log.D("Send, type:", st.Type, "len:", st.Buffer.Length, "size:", st.Buffer.Bytes, "queue left:", sendQueue.Count);
+                        Log.D("Send, type:", st.Type, "buffer:", st.Buffer, "queue left:", sendQueue.Count);
 #endif
                         await socket.SendAsync(new ReadOnlyMemory<byte>(st.Buffer.Bytes, 0, st.Buffer.Length), st.Type, true, CancellationToken.None);
                         st.Buffer.Dispose();
@@ -299,7 +300,7 @@ namespace UnityWebSocket
         private void HandleMessage(XBuffer buffer)
         {
 #if UNITY_WEBSOCKET_LOG
-            Log.D("OnMessage, size:", buffer.Bytes);
+            Log.D("OnMessage, size:", buffer);
 #endif
             var evt = WSEventArgs.Get();
             evt.EventType = WSEventType.Message;

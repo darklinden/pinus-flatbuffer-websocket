@@ -1,5 +1,6 @@
 using System;
 using UnityWebSocket;
+using XPool;
 
 namespace PinusUnity
 {

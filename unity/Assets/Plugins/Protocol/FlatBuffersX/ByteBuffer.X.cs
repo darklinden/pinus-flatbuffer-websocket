@@ -13,7 +13,7 @@ namespace Google.FlatBuffers
             _pos = 0;
         }
 
-        internal static ByteBuffer Get()
+        public static ByteBuffer GetAny()
         {
             var buffer = AnyPool<ByteBuffer>.Get();
             return buffer;

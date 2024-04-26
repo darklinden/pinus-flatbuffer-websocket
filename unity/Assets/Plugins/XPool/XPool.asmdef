@@ -1,0 +1,14 @@
+{
+    "name": "XPool",
+    "rootNamespace": "",
+    "references": ["UniTask","ReadOnlyAttribute","Log", "LitJson"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

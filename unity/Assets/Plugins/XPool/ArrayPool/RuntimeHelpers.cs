@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace XPool
 {
-    internal static class RuntimeHelpers
+    public static class RuntimeHelpers
     {
         public static void BeforePoolPushResize<T>(
             System.Collections.Generic.Queue<T> pool,

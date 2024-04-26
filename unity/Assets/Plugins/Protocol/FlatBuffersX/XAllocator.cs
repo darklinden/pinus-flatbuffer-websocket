@@ -62,11 +62,24 @@ namespace Google.FlatBuffers
                 throw new Exception("ByteBuffer: cannot truncate buffer.");
 
             // Rent new and copy
+#if XPOOL_LOG
+            var oldeLength = Length;
+#endif
             var newBuffer = ArrayPool<byte>.Shared.Get(newSize);
-            System.Buffer.BlockCopy(_buffer, 0, newBuffer, newBuffer.Length - Length, Length);
+            if (_buffer != null)
+            {
+                if (Length > 0 && newSize > Length)
+                {
+                    System.Buffer.BlockCopy(_buffer, 0, newBuffer, newSize - Length, Length);
+                }
 
-            // Return old
-            ArrayPool<byte>.Shared.Return(ref _buffer);
+                // Return old
+                ArrayPool<byte>.Shared.Return(ref _buffer);
+            }
+
+#if XPOOL_LOG
+            Log.D("XAllocator Resize bytes", oldeLength, "->", newBuffer.Length);
+#endif
 
             // Set new
             _buffer = newBuffer;

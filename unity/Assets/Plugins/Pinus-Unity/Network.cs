@@ -5,6 +5,8 @@ using Google.FlatBuffers;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityWebSocket;
+using XPool;
+using Proto;
 
 namespace PinusUnity
 {
@@ -331,7 +333,7 @@ namespace PinusUnity
             Log.D("Pinus Recv", routeStr, "Data Length", bodyLength);
 #endif
 
-            var bb = ByteBuffer.Get();
+            var bb = ByteBuffer.GetAny();
             bb.Resize(bytes.Length);
             bb.CopyBytes(bytes, bodyOffset, bodyLength);
 

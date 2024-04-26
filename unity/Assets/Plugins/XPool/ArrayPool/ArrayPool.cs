@@ -7,6 +7,7 @@ namespace XPool
     public class ArrayPool<T>
     {
         public static readonly ArrayPool<T> Shared = new ArrayPool<T>();
+        public static readonly string TName = typeof(T).Name;
 
         readonly Queue<T[]>[] m_Pool;
         readonly PoolCounter[] m_StackCounters;
@@ -51,7 +52,7 @@ namespace XPool
                 if (pool.Count != 0)
                 {
 #if XPOOL_LOG
-                    Log.D("ArrayPool.Rent Use Pool", pool.Count);
+                    Log.D("ArrayPool.Rent", TName, "From Pool", pool.Count);
 #endif
                     var array = pool.Dequeue();
                     return array;
@@ -59,7 +60,7 @@ namespace XPool
             }
 
 #if XPOOL_LOG
-            Log.D("ArrayPool.Rent Alloc");
+            Log.D("ArrayPool.Rent", TName, "Alloc");
 #endif
             Profiler.BeginSample("ArrayPool.Rent Alloc");
             var allocArr = new T[size];

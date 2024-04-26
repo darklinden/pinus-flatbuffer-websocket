@@ -32,7 +32,7 @@ namespace Google.FlatBuffers
             get
             {
                 var builder = AnyPool<FlatBufferBuilder>.Get();
-                var bb = ByteBuffer.Get();
+                var bb = ByteBuffer.GetAny();
                 builder.SetByteBuffer(bb);
                 builder.IsDisposed = false;
                 return builder;

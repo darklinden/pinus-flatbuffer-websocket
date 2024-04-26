@@ -8,7 +8,7 @@ namespace XPool
     public class AnyPool<T> where T : class, new()
     {
         // static
-        public static string TypeName = typeof(T).Name;
+        public static readonly string TName = typeof(T).Name;
 
         // instance
         public int PoolCapacity { get; set; } = 256;
@@ -32,11 +32,19 @@ namespace XPool
         {
             if (m_Pool.Count != 0)
             {
+#if XPOOL_LOG
+                Log.D("AnyPool.GetAny", TName, "From Pool", m_Pool.Count);
+#endif
+
                 Profiler.BeginSample("AnyPool.GetAny Dequeue");
                 var queueT = m_Pool.Dequeue();
                 Profiler.EndSample();
                 return queueT;
             }
+
+#if XPOOL_LOG
+            Log.D("AnyPool.GetAny", TName, "Alloc");
+#endif
 
             Profiler.BeginSample("AnyPool.GetAny Alloc");
             var allocT = m_Factory.Invoke();
@@ -60,7 +68,7 @@ namespace XPool
             else
             {
                 // If the pool is full, we will not return the array to the pool.
-                Log.W("AnyPool ReturnAny Out Of Stack", TypeName, PoolCapacity);
+                Log.W("AnyPool ReturnAny Out Of Stack", TName, PoolCapacity);
             }
         }
 
@@ -97,7 +105,7 @@ namespace XPool
         {
             if (m_Shared != null)
             {
-                Log.W("AnyPool SharedInit already initialized");
+                Log.W("AnyPool", TName, "SharedInit already initialized");
                 return Shared;
             }
             m_Shared = new AnyPool<T>(capacity, factory);
