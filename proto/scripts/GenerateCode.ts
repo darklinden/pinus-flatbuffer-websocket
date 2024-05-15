@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 
 import { paths } from "./Paths";
 import { walkDir } from "../tools/FileUtil";
+import { exit } from "process";
 
 
 export async function generateTsCode() {

@@ -46,7 +46,7 @@ export function git_last_commit_time(cwd: string): string {
     const git_last_commit_timestamp = execSync('git log -1 --format=%ct', { cwd: cwd }).toString().trim();
     let git_last_commit_date = new Date(parseInt(git_last_commit_timestamp) * 1000);
     let yyyy = git_last_commit_date.getFullYear();
-    let MM = ('0' + git_last_commit_date.getMonth()).slice(-2);
+    let MM = ('0' + (git_last_commit_date.getMonth() + 1)).slice(-2);
     let dd = ('0' + git_last_commit_date.getDate()).slice(-2);
     let HH = ('0' + git_last_commit_date.getHours()).slice(-2);
     let mm = ('0' + git_last_commit_date.getMinutes()).slice(-2);

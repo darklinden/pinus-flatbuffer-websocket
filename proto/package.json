@@ -5,14 +5,18 @@
   "description": "将csv表转为fbs, 合并网络协议fbs, 转为不同语言的 flatbuffers 代码",
   "main": "index.js",
   "scripts": {
-    "build": "npx ts-node ./scripts/RunBuildFlat.ts",
-    "test": "npx ts-node ./tools/LocalTest.ts"
+    "build": "yarn run ts-node ./scripts/RunBuildFlat.ts",
+    "test": "yarn run ts-node ./tools/LocalTest.ts"
+  },
+  "bin": {
+    "flatc": "./flatc/flatc.js"
   },
   "author": "",
   "dependencies": {},
   "devDependencies": {
     "@types/node": "16.7.13",
     "typescript": "4.7.4",
+    "anywhere": "^1.6.0",
     "ts-node": "^10.9.1"
   }
 }
