@@ -2,12 +2,9 @@ use actix_web::web::{self, Json};
 
 use super::user_service;
 use crate::{
-    database::{
-        db_util::redis_conn,
-        dto::{
-            request_user_dto::RequestUserDto,
-            response_login_dto::{self, ResponseLoginDto},
-        },
+    database::dto::{
+        request_user_dto::RequestUserDto,
+        response_login_dto::{self, ResponseLoginDto},
     },
     utils::{error::ServerErrorType, jwt, result::ResponseResult},
 };
@@ -21,7 +18,10 @@ pub async fn register(
 
     log::info!("UserController.register: {:?}", &user_info);
 
-    let mut rd = redis_conn(redis_client).await;
+    let mut rd = redis_client
+        .get_connection_manager()
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     let result = user_service::register(&mut rd, &pg_conn, &user_info).await;
 
     if result.is_err() {
@@ -50,7 +50,10 @@ pub async fn login(
 
     log::info!("UserController.login: {:?}", &user_info);
 
-    let mut rd = redis_conn(redis_client).await;
+    let mut rd = redis_client
+        .get_connection_manager()
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     let result = user_service::login(&mut rd, &pg_conn, &user_info).await;
 
     if result.is_err() {

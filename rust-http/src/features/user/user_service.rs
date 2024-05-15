@@ -56,7 +56,7 @@ pub async fn login(
         let user = exist_user.unwrap();
         if check_password(
             dto.password.as_ref().unwrap(),
-            &user.password.as_ref().unwrap(),
+            user.password.as_ref().unwrap(),
         ) {
             return Ok(user);
         }
@@ -102,11 +102,8 @@ pub async fn account_get_user(
 
     log::info!("account_get_user: {:?}", res);
 
-    if res.is_ok() {
-        let user = res.unwrap();
-        if user.is_some() {
-            return Ok(user.unwrap());
-        }
+    if let Ok(Some(user)) = res {
+        return Ok(user);
     }
 
     // db

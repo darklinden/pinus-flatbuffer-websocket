@@ -35,19 +35,19 @@ pub fn sign(uid: i64) -> String {
         &EncodingKey::from_ec_pem(PRIVATE_KEY).unwrap(),
     );
 
-    return token.unwrap();
+    token.unwrap()
 }
 
 #[allow(dead_code)]
-pub fn verify(token: &String) -> AuthDto {
+pub fn verify(token: &str) -> AuthDto {
     let token_data = decode::<AuthDto>(
-        &token,
+        token,
         &DecodingKey::from_ec_pem(PUBLIC_KEY).unwrap(),
         &Validation::new(ALGORITHM),
     );
 
     match token_data {
-        Ok(token_data) => return token_data.claims,
+        Ok(token_data) => token_data.claims,
         Err(err) => match *err.kind() {
             InvalidToken => panic!("Token is invalid"),
             InvalidSignature => panic!("Token signature is invalid"),

@@ -7,7 +7,7 @@ pub enum ServerErrorType {
 
 impl From<tokio_postgres::error::Error> for ServerErrorType {
     fn from(error: tokio_postgres::error::Error) -> Self {
-        println!("{}", error.to_string());
+        println!("{}", error);
         ServerErrorType::ERR_FAILED
     }
 }

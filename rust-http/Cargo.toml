@@ -10,23 +10,23 @@ members = [".", "entities"]
 
 [dependencies]
 entities = { path = "entities" }
-actix-cors = "0.6.4"
+actix-cors = "0.7.0"
 actix-rt = "2.9.0"
 actix-web = "4.4.0"
 chrono = "0.4.30"
-config = "0.13.3"
+config = "0.14.0"
 derive_more = "0.99.17"
 dotenv = "0.15.0"
-env_logger = "0.8"
-jsonwebtoken = { version = "8.3.0", features = ["use_pem"] }
+env_logger = "0.11.3"
+jsonwebtoken = { version = "9.3.0", features = ["use_pem"] }
 log = "0.4"
-redis = { version = "0.23", default-features = false, features = [
+redis = { version = "0.25.3", default-features = false, features = [
     "tokio-comp",
     "connection-manager",
 ] }
 sea-orm = { version = "0.12.3", features = [
     "sqlx-postgres",
-    "runtime-async-std-native-tls",
+    "runtime-actix-rustls",
     "macros",
 ] }
 serde = "1.0.188"
