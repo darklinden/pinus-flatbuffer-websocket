@@ -2,7 +2,7 @@
   "name": "db-manager",
   "license": "UNLICENSED",
   "version": "1.0.0",
-  "description": "",
+  "description": "管理数据库表结构变化",
   "main": "",
   "scripts": {
     "test-upgrade": "yarn ts-node ./scripts/index.ts test-upgrade",

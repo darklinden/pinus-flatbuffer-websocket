@@ -1,8 +1,8 @@
 # database management
 
-* There are two types of ORM-based database management
-  * Generating tables based on structure descriptions. After modifying the structure code, the modified SQL is automatically generated and synchronized to the database.
-  * Generate code by reading the table structure from the database and the code changes as the database changes
-  * Currently I want to use the second method
+* 基于 orm 的数据库管理有两种
+  * 从结构描述生成表，结构代码修改后自动生成修改sql并同步到数据库
+  * 从数据库中读取表结构生成代码，代码跟随数据库变化而变化
+  * 目前想使用的是第二种
 
-* It is currently envisioned to create a migration table in the database that records changes to each table. When the database changes, write the appropriate version of the table creation and merge scripts, with the current version of the database determining which script is executed.
+* 目前设想在数据库中创建一个 migration 表，用于记录每个表的变化，当需要对数据库进行变更时，根据 migration 表中的记录生成变更 sql，然后执行 sql，同时更新 migration 表中的记录
