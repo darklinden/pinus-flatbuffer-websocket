@@ -5,7 +5,7 @@ RUN apk upgrade --no-cache \
 
 WORKDIR /usr/src/app
 COPY . .
-RUN RUSTFLAGS="-Ctarget-feature=-crt-static" cargo build --release
+RUN RUSTFLAGS="-Ctarget-feature=-crt-static" cargo build --release -p server-http
 
 FROM alpine:3.18
 

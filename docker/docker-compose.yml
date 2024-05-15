@@ -6,16 +6,13 @@ services:
     image: redis:7.0.9-alpine
     restart: always
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: ["redis-server", "/etc/redis/redis.conf"]
     volumes:
       - ./redis/data:/data
       - type: bind
         source: ./redis/redis.conf
         target: /etc/redis/redis.conf
-    networks:
-      app_net:
-        ipv4_address: 10.10.10.10
     logging:
       driver: "local"
       options:
@@ -27,15 +24,12 @@ services:
     image: postgres:14.7-alpine
     restart: always
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=123456
     volumes:
       - ./pgdata:/var/lib/postgresql/data
-    networks:
-      app_net:
-        ipv4_address: 10.10.10.11
     logging:
       driver: "local"
       options:
@@ -44,19 +38,15 @@ services:
           
   http-server:
     container_name: "http-server"
-    image: rust-http
+    image: server-http:master-a322e0d
     restart: always
+    working_dir: /app
     env_file:
       - config.env
-    command: app
-    ports:
-      - "3000:3000"
+    command: /app/server-http
     depends_on:
       - redis
       - postgresql
-    networks:
-      app_net:
-        ipv4_address: 10.10.10.13
     logging:
       driver: "local"
       options:
@@ -65,21 +55,17 @@ services:
 
   ws-server:
     container_name: "ws-server"
-    image: pinus-ws
+    image: server-ws:master-a322e0d
+    volumes:
+      - ./server-ws/configs:/app/configs
     restart: always
     working_dir: /app
     env_file:
       - config.env
-    command: node /app/dist/app.js
-    ports:
-      - "3010:3010"
-      - "3011:3011"
+    command: /app/server-ws
     depends_on:
       - redis
       - postgresql
-    networks:
-      app_net:
-        ipv4_address: 10.10.10.14
     logging:
       driver: "local"
       options:
@@ -105,18 +91,8 @@ services:
     depends_on:
       - http-server
       - ws-server
-    networks:
-      app_net:
-        ipv4_address: 10.10.10.15
     logging:
       driver: "local"
       options:
           max-file: 5
           max-size: 10m
-          
-networks:
-  app_net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.10.10.0/8
