@@ -19,27 +19,31 @@ public struct UserInfo : IFlatbufferObject
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public UserInfo __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public string Name { get { int o = __p.__offset(4); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public long UserId { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetLong(o + __p.bb_pos) : (long)0; } }
+  public string Name { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetNameBytes() { return __p.__vector_as_span<byte>(4, 1); }
+  public Span<byte> GetNameBytes() { return __p.__vector_as_span<byte>(6, 1); }
 #else
-  public ArraySegment<byte>? GetNameBytes() { return __p.__vector_as_arraysegment(4); }
+  public ArraySegment<byte>? GetNameBytes() { return __p.__vector_as_arraysegment(6); }
 #endif
-  public byte[] GetNameArray() { return __p.__vector_as_array<byte>(4); }
-  public int Level { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public byte[] GetNameArray() { return __p.__vector_as_array<byte>(6); }
+  public int Level { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
 
   public static Offset<Proto.UserInfo> Create(FlatBufferBuilder builder,
+      long user_id = 0,
       StringOffset nameOffset = default(StringOffset),
       int level = 0) {
-    builder.StartTable(2);
+    builder.StartTable(3);
+    UserInfo.AddUserId(builder, user_id);
     UserInfo.AddLevel(builder, level);
     UserInfo.AddName(builder, nameOffset);
     return UserInfo.End(builder);
   }
 
-  public static void StartUserInfo(FlatBufferBuilder builder) { builder.StartTable(2); }
-  public static void AddName(FlatBufferBuilder builder, StringOffset nameOffset) { builder.AddOffset(0, nameOffset.Value, 0); }
-  public static void AddLevel(FlatBufferBuilder builder, int level) { builder.AddInt(1, level, 0); }
+  public static void StartUserInfo(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void AddUserId(FlatBufferBuilder builder, long userId) { builder.AddLong(0, userId, 0); }
+  public static void AddName(FlatBufferBuilder builder, StringOffset nameOffset) { builder.AddOffset(1, nameOffset.Value, 0); }
+  public static void AddLevel(FlatBufferBuilder builder, int level) { builder.AddInt(2, level, 0); }
   public static Offset<Proto.UserInfo> End(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<Proto.UserInfo>(o);
@@ -50,6 +54,7 @@ public struct UserInfo : IFlatbufferObject
     return _o;
   }
   public void UnPackTo(UserInfoT _o) {
+    _o.UserId = this.UserId;
     _o.Name = this.Name;
     _o.Level = this.Level;
   }
@@ -58,6 +63,7 @@ public struct UserInfo : IFlatbufferObject
     var _name = _o.Name == null ? default(StringOffset) : builder.CreateString(_o.Name);
     return Create(
       builder,
+      _o.UserId,
       _name,
       _o.Level);
   }
@@ -65,10 +71,12 @@ public struct UserInfo : IFlatbufferObject
 
 public class UserInfoT
 {
+  public long UserId { get; set; }
   public string Name { get; set; }
   public int Level { get; set; }
 
   public UserInfoT() {
+    this.UserId = 0;
     this.Name = null;
     this.Level = 0;
   }
@@ -80,8 +88,9 @@ static public class UserInfoVerify
   static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
   {
     return verifier.VerifyTableStart(tablePos)
-      && verifier.VerifyString(tablePos, 4 /*Name*/, false)
-      && verifier.VerifyField(tablePos, 6 /*Level*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 4 /*UserId*/, 8 /*long*/, 8, false)
+      && verifier.VerifyString(tablePos, 6 /*Name*/, false)
+      && verifier.VerifyField(tablePos, 8 /*Level*/, 4 /*int*/, 4, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

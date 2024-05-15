@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿#if UNITY_EDITOR
+
+using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 
@@ -85,3 +87,5 @@ public static class DefineSymbol_XPOOL_LOG
         }
     }
 }
+
+#endif

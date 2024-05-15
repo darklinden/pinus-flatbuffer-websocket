@@ -1,0 +1,28 @@
+[package]
+name = "configs"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "configs"
+path = "src/lib.rs"
+
+[dependencies]
+entities = { workspace = true }
+macro-markers = { workspace = true }
+protocols = { workspace = true }
+utils = { workspace = true }
+database = { workspace = true }
+
+actix-web = { workspace = true }
+flatbuffers = { workspace = true }
+sea-orm = { workspace = true }
+redis = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
+arc-swap = { workspace = true }
+futures-util = { workspace = true }

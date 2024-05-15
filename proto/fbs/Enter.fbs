@@ -10,3 +10,12 @@ table ResponseUserEnter {
     code: int32;
     user: UserInfo;
 }
+
+table RequestUserHello {
+    
+}
+
+table ResponseUserHello {
+    code: int32;
+    say: string;
+}

@@ -26,6 +26,7 @@ public class NetworkTest : MonoBehaviour
         var httpRegister = Singleton<HttpRegister>.Instance;
         var wsConnect = Singleton<WsConnect>.Instance;
         var userEnter = Singleton<UserEnter>.Instance;
+        var userHello = Singleton<UserHello>.Instance;
 
         var result = await httpLogin.AsyncRequest("test", "test");
         if (result == null)
@@ -50,7 +51,18 @@ public class NetworkTest : MonoBehaviour
             return;
         }
 
+        Log.D("NetworkTest AsyncLogin result", "user-id", userEnterResult.Value.User.Value.UserId);
         Log.D("NetworkTest AsyncLogin result", "user-name", userEnterResult.Value.User.Value.Name);
         Log.D("NetworkTest AsyncLogin result", "user-level", userEnterResult.Value.User.Value.Level);
+
+        var userHelloResult = await userHello.AsyncRequest();
+
+        if (userHelloResult == null)
+        {
+            Log.E("NetworkTest AsyncLogin", "user hello failed");
+            return;
+        }
+
+        Log.D("NetworkTest AsyncLogin result", "user-hello", userHelloResult.Value.Say);
     }
 }

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace XPool
 {
-    public partial class XList<T> : IEnumerable<T>, IList<T>, IDisposable
+    public class XList<T> : IEnumerable<T>, IList<T>, IDisposable
     {
         private static AnyPool<XList<T>> sm_Pool;
         public static AnyPool<XList<T>> SharedPool
@@ -18,6 +18,8 @@ namespace XPool
                 return sm_Pool;
             }
         }
+
+        public static readonly string TName = typeof(T).Name;
 
         public static XList<T> Get()
         {
@@ -79,7 +81,7 @@ namespace XPool
 
                 if (!(m_Array != null && index >= 0 && index < m_Array.Length))
                 {
-                    Log.E("XList", typeof(T).Name, "get_Item Index Out Of Range", index, m_Count);
+                    Log.E("XList", TName, "get_Item Index Out Of Range", index, m_Count);
                 }
                 return m_Array[index];
             }
@@ -93,7 +95,7 @@ namespace XPool
 #endif
                     ArrayPoolUtility.EnsureFixedCapacity(ref m_Array, index + 1, ArrayPool<T>.Shared);
 #if XPOOL_LOG
-                    Log.W("XList", typeof(T).Name, "set_Item Index Out Of Range Trigger Resize", index, oldLen, "->", m_Array.Length);
+                    Log.W("XList", TName, "set_Item Index Out Of Range Trigger Resize", index, oldLen, "->", m_Array.Length);
 #endif
                 }
                 // set count if necessary
@@ -832,7 +834,12 @@ namespace XPool
 
             m_Array = null;
             m_Count = 0;
-            AnyPool<XList<T>>.Return(this);
+
+#if XPOOL_LOG
+            Log.D("XList", TName, "Dispose");
+#endif
+
+            SharedPool.ReturnAny(this);
         }
     }
 }

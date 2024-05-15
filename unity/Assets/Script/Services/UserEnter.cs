@@ -19,7 +19,7 @@ namespace Service
             var offset = RequestUserEnter.Create(builder, tokenOffset);
             builder.Finish(offset.Value);
 
-            var bb = await Pinus.AsyncRequest(Structs.Home.Enter.route, builder);
+            var bb = await Pinus.AsyncRequest(Structs.GameRoute.EntryEntry.route, builder);
 
             var data = ResponseUserEnter.GetRoot(bb);
 
@@ -32,6 +32,5 @@ namespace Service
 
             return data;
         }
-
     }
 }

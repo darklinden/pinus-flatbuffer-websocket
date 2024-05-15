@@ -269,7 +269,7 @@ namespace UnityWebSocket
                 HandleError(e);
             }
 
-            closeCode = (ushort)socket.CloseStatus;
+            closeCode = socket.CloseStatus.HasValue ? (ushort)socket.CloseStatus.Value : (ushort)CloseStatusCode.Abnormal;
             closeReason = socket.CloseStatusDescription;
 
             HandleClose(closeCode, closeReason);
