@@ -1,12 +1,12 @@
 CREATE TABLE "user_info" (
-    "id" bigserial NOT NULL,
+    "user_id" bigint NOT NULL,
     "name" character varying NOT NULL,
     "level" integer NOT NULL,
     "last_login_version" character varying NOT NULL DEFAULT '',
-    CONSTRAINT "PK_495a51b288528ad9e4a0125060c" PRIMARY KEY ("id")
+    CONSTRAINT "PK_user_info" PRIMARY KEY ("user_id")
 );
 
-COMMENT ON COLUMN "user_info"."id" IS 'id';
+COMMENT ON COLUMN "user_info"."user_id" IS 'user_id';
 
 COMMENT ON COLUMN "user_info"."name" IS '昵称';
 
