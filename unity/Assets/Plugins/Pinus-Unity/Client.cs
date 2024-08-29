@@ -49,10 +49,10 @@ namespace PinusUnity
             try
             {
                 m_Ws = new WebSocket(this.Url);
-                m_Ws.OnOpen += OnOpen;
-                m_Ws.OnClose += OnClose;
-                m_Ws.OnError += OnError;
-                m_Ws.OnMessage += OnMessage;
+                m_Ws.OnOpen = OnOpen;
+                m_Ws.OnClose = OnClose;
+                m_Ws.OnError = OnError;
+                m_Ws.OnMessage = OnMessage;
                 m_Ws.ConnectAsync();
             }
             catch (Exception e)

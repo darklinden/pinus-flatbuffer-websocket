@@ -18,6 +18,9 @@ namespace UnityWebSocket
 
         WebSocketState ReadyState { get; }
 
-        event EventHandler<WSEventArgs> OnMessage;
+        Action<IWebSocket, WSEventArgs> OnOpen { get; set; }
+        Action<IWebSocket, WSEventArgs> OnClose { get; set; }
+        Action<IWebSocket, WSEventArgs> OnError { get; set; }
+        Action<IWebSocket, WSEventArgs> OnMessage { get; set; }
     }
 }

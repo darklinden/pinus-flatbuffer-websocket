@@ -1,4 +1,4 @@
-#if UNITY_WEBGL && (!UNITY_EDITOR || UNITY_WEBSOCKET_WEBGL_IMPL)
+#if (UNITY_WEBGL && !UNITY_EDITOR ) || UNITY_WEBSOCKET_WEBGL_IMPL
 // WebGL平台 且 (不在编辑器下, 或强制指定使用WebGL实现), 使用此实现
 
 using System;
@@ -12,10 +12,10 @@ namespace UnityWebSocket
         public string[] SubProtocols { get; private set; }
         public WebSocketState ReadyState { get { return (WebSocketState)WebSocketManager.WebSocketGetState(instanceId); } }
 
-        public event EventHandler<WSEventArgs> OnOpen;
-        public event EventHandler<WSEventArgs> OnClose;
-        public event EventHandler<WSEventArgs> OnError;
-        public event EventHandler<WSEventArgs> OnMessage;
+        public Action<IWebSocket, WSEventArgs> OnOpen { get; set; }
+        public Action<IWebSocket, WSEventArgs> OnClose { get; set; }
+        public Action<IWebSocket, WSEventArgs> OnError { get; set; }
+        public Action<IWebSocket, WSEventArgs> OnMessage { get; set; }
 
         internal int instanceId = 0;
 

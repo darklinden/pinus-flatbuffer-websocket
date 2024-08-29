@@ -1,11 +1,10 @@
-﻿#if !UNITY_WEBGL || (UNITY_EDITOR && !UNITY_WEBSOCKET_WEBGL_IMPL)
+﻿#if !(UNITY_WEBGL && !UNITY_EDITOR) && !UNITY_WEBSOCKET_WEBGL_IMPL
 // 非WebGL平台使用此实现 或 编辑器下, 且未指定使用WebGL实现, 使用此实现
 
 using System;
 using System.Net.WebSockets;
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using System.Threading.Tasks;
 using XPool;
 
 namespace UnityWebSocket
@@ -38,10 +37,10 @@ namespace UnityWebSocket
             }
         }
 
-        public event EventHandler<WSEventArgs> OnOpen;
-        public event EventHandler<WSEventArgs> OnClose;
-        public event EventHandler<WSEventArgs> OnError;
-        public event EventHandler<WSEventArgs> OnMessage;
+        public Action<IWebSocket, WSEventArgs> OnOpen { get; set; }
+        public Action<IWebSocket, WSEventArgs> OnClose { get; set; }
+        public Action<IWebSocket, WSEventArgs> OnError { get; set; }
+        public Action<IWebSocket, WSEventArgs> OnMessage { get; set; }
 
         private ClientWebSocket socket;
         private bool isOpening => socket != null && socket.State == System.Net.WebSockets.WebSocketState.Open;
@@ -130,7 +129,7 @@ namespace UnityWebSocket
             Log.D("Connect Task End !");
 #endif
 
-            await ReceiveTask();
+            ReceiveTask().Forget();
         }
 
         public struct SendTaskStruct

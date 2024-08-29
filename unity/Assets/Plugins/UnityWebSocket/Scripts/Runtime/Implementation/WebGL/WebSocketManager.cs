@@ -1,4 +1,4 @@
-#if UNITY_WEBGL && (!UNITY_EDITOR || UNITY_WEBSOCKET_WEBGL_IMPL)
+#if (UNITY_WEBGL && !UNITY_EDITOR ) || UNITY_WEBSOCKET_WEBGL_IMPL
 // WebGL平台 且 (不在编辑器下, 或强制指定使用WebGL实现), 使用此实现
 
 using System;

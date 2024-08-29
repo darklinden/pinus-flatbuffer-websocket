@@ -80,6 +80,16 @@ public static partial class Log
             return "null";
         }
 
+        if (obj is string)
+        {
+            return obj as string;
+        }
+
+        if (obj is Type)
+        {
+            return (obj as Type).Name;
+        }
+
         if (obj.GetType().IsValueType)
         {
             return obj.ToString();

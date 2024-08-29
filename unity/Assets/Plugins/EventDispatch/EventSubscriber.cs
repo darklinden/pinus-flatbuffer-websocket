@@ -43,8 +43,8 @@ public class EventSubscriber : MonoBehaviour
     {
         if (tar != null)
         {
-            var comp = tar.GetComponent<EventSubscriber>();
-            if (comp == null) comp = tar.AddComponent<EventSubscriber>();
+            if (tar.TryGetComponent<EventSubscriber>(out var comp) == false)
+                comp = tar.AddComponent<EventSubscriber>();
             return comp;
         }
 

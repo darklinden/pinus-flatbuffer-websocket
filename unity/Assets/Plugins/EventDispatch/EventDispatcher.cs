@@ -84,8 +84,6 @@ public class EventDispatcher
         }
 
         // cache delegate
-        EventDelegateCache delegateCache = (e) => del((T)e);
-
         List<Container> delegateList;
         if (!this.delegateCache.TryGetValue(eventName, out delegateList))
         {
@@ -104,15 +102,15 @@ public class EventDispatcher
 
         if (!alreadyHas)
         {
+            EventDelegateCache delegateCache = (e) => del((T)e);
             delegateList.Add(new Container
             {
                 Delegate = del,
                 DelegateCache = delegateCache,
                 WeakTarget = weakTarget
             });
+            this.delegateCache[eventName] = delegateList;
         }
-
-        this.delegateCache[eventName] = delegateList;
     }
 
     public static void AddListener<T>(string eventName, EventDelegate<T> del, System.Object target = null)

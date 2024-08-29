@@ -65,20 +65,20 @@ namespace PinusUnity
 
         public bool IsConnected { get { return Client != null && Client.IsConnected; } }
 
-        // 心跳检测累计时间 累加
-        protected float HeartbeatPassed { get; set; }
-        // 心跳检测发送间隔 倒计时
-        protected float HeartbeatSendDelay { get; set; }
+        // 心跳检测 - 上次心跳检测时间
+        protected float HeartbeatLastSend { get; set; }
+        // 心跳检测 - 上次收到心跳包时间
+        protected float HeartbeatLastRecv { get; set; }
+
         // 心跳检测发送间隔时长
         protected float HeartbeatInterval { get; set; }
-        // 心跳检测多次发送间隔时长
-        protected float HeartbeatSendInterval { get; set; }
+
         // 心跳检测超时时长
         protected float HeartbeatTimeout { get; set; }
-        // 心跳检测需发送
-        protected bool ShouldHeartbeat { get; set; } = false;
 
-        public bool HandshakeEnded { get; private set; } = false;
+        // 心跳检测需发送
+        protected bool HeartbeatEnabled { get; set; } = false;
+        public bool HandshakeCompleted { get; private set; } = false;
 
         protected int m_RequestId = 1;
         public int GenerateUniqueRequestId()
@@ -134,36 +134,69 @@ namespace PinusUnity
 
         public void OnError(string err)
         {
-            HandshakeEnded = false;
-            ShouldHeartbeat = false;
+            HandshakeCompleted = false;
+            HeartbeatEnabled = false;
             Log.W("Pinus OnError:", Url, err);
+
+            if (m_RequestCallbackMap.Count > 0)
+            {
+                foreach (var kv in m_RequestCallbackMap)
+                {
+                    kv.Value(null);
+                }
+                m_RequestCallbackMap.Clear();
+            }
+
+            m_RequestRouteMap.Clear();
+
+            if (m_RequestTasks.Count > 0)
+            {
+                foreach (var kv in m_RequestTasks)
+                {
+                    kv.Value.TrySetResult(null);
+                }
+                m_RequestTasks.Clear();
+            }
+
             EventBus.Instance.Error(Url, err);
         }
 
         public void OnClose(ushort closeCode, string closeReason)
         {
-            HandshakeEnded = false;
-            ShouldHeartbeat = false;
+            HandshakeCompleted = false;
+            HeartbeatEnabled = false;
             Log.W("Pinus OnClose:", Url, closeCode, closeReason);
+
+            if (m_RequestCallbackMap.Count > 0)
+            {
+                foreach (var kv in m_RequestCallbackMap)
+                {
+                    kv.Value(null);
+                }
+                m_RequestCallbackMap.Clear();
+            }
+
+            m_RequestRouteMap.Clear();
+
+            if (m_RequestTasks.Count > 0)
+            {
+                foreach (var kv in m_RequestTasks)
+                {
+                    kv.Value.TrySetResult(null);
+                }
+                m_RequestTasks.Clear();
+            }
+
             EventBus.Instance.Closed(Url, closeCode, closeReason);
         }
 
         public void ConnectTimeout()
         {
-            HandshakeEnded = false;
+            HandshakeCompleted = false;
             EventBus.Instance.Error(Url, "Connect Timeout");
         }
 
         // --- Socket end ---
-        protected void RenewHeartbeatTimeout()
-        {
-#if PINUS_LOG
-            Log.D("RenewHeartbeatTimeout");
-#endif
-            HeartbeatPassed = 0;
-            HeartbeatSendDelay = 0;
-        }
-
         void OnHandshake(byte[] data, int offset, int length)
         {
 #if PINUS_LOG
@@ -204,8 +237,9 @@ namespace PinusUnity
 
             if (heartbeat != 0)
             {
-                HeartbeatInterval = heartbeat;          // 间隔 HeartbeatInterval 发送心跳
-                HeartbeatSendInterval = heartbeat <= 1 ? heartbeat / 5f : 1;              // 发送心跳后 间隔 HeartbeatSendInterval 再次发送
+                // 间隔 HeartbeatInterval, 客户端向服务器发送心跳
+                HeartbeatInterval = heartbeat;
+                // 响应时间 HeartbeatTimeout, 超过这个时间未收到服务器的心跳包, 认为连接断开
                 HeartbeatTimeout = heartbeat * 2;       // 超时时间
             }
             else
@@ -229,7 +263,7 @@ namespace PinusUnity
             }
 
             Client.SendBuffer(Package.SimplePack(PackageType.HandshakeAck));
-            HandshakeEnded = true;
+            HandshakeCompleted = true;
             EventBus.Instance.HandshakeOver(Url);
         }
 
@@ -241,10 +275,17 @@ namespace PinusUnity
             }
 
             // 当收到服务器的心跳包时，更新心跳超时时间, 并设置下一次心跳
-            RenewHeartbeatTimeout();
+#if PINUS_LOG
+            Log.D("OnHeartbeat");
+#endif
 
             // 服务器收到 HandShakeAck 后会回复 Heartbeat, 这时开始心跳检测
-            ShouldHeartbeat = true;
+            if (HeartbeatEnabled == false)
+            {
+                HeartbeatEnabled = true;
+            }
+
+            HeartbeatLastRecv = Time.realtimeSinceStartup;
         }
 
         void HeartbeatCheck()
@@ -254,35 +295,27 @@ namespace PinusUnity
             if (!Client.IsConnected)
             {
                 // 如果连接已断开, 不关心心跳检测
-                ShouldHeartbeat = false;
+                HeartbeatEnabled = false;
                 return;
             }
 
-            if (!ShouldHeartbeat) return;
+            if (!HeartbeatEnabled) return;
 
-            var dt = Time.unscaledDeltaTime;
-
-            // 计时
-            HeartbeatPassed += dt;
-            HeartbeatSendDelay -= dt;
+            var now = Time.realtimeSinceStartup;
 
             // 如果累计时间大于超时检测时间 准备发送心跳
-            if (HeartbeatPassed > HeartbeatInterval)
+            if (now > HeartbeatLastSend + HeartbeatInterval)
             {
-                // 当延迟剩余小于等于 0 时, 发送
-                if (HeartbeatSendDelay <= 0)
-                {
 #if PINUS_LOG
-                    Log.D("Pinus Send Heartbeat");
+                Log.D("Pinus Send Heartbeat");
 #endif
-                    // 设置发送延迟, 防止重复多次发送
-                    HeartbeatSendDelay = HeartbeatSendInterval;
-                    Client.SendBuffer(Package.SimplePack(PackageType.Heartbeat));
-                }
+                // 设置发送延迟, 防止重复多次发送
+                Client.SendBuffer(Package.SimplePack(PackageType.Heartbeat));
+                HeartbeatLastSend = now;
             }
 
             // 如果累计时间大于超时时间, 进入超时错误处理
-            if (HeartbeatPassed > HeartbeatTimeout)
+            if (now > HeartbeatLastRecv + HeartbeatTimeout)
             {
 #if PINUS_LOG
                 Log.D("Pinus Heartbeat Timeout");
@@ -421,8 +454,8 @@ namespace PinusUnity
 
         public void Disconnect()
         {
-            HandshakeEnded = false;
-            ShouldHeartbeat = false;
+            HandshakeCompleted = false;
+            HeartbeatEnabled = false;
             Client.Close();
         }
 

@@ -1,4 +1,4 @@
-#if !UNITY_WEBGL || (UNITY_EDITOR && !UNITY_WEBSOCKET_WEBGL_IMPL) 
+#if !(UNITY_WEBGL && !UNITY_EDITOR) && !UNITY_WEBSOCKET_WEBGL_IMPL
 // 非WebGL平台使用此实现 或 编辑器下, 且未指定使用WebGL实现, 使用此实现
 
 using System.Collections.Generic;
